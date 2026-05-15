@@ -89,60 +89,387 @@
 
   <header>
     <h1>⚙ GROUND CONTROL STATION</h1>
-    <div>
-      <span id="conn-dot" class="conn-indicator error"></span>
-      <span id="conn-label" style="font-size:.8rem;color:#ccc">Connecting…</span>
+    <div class="conn-status">
+      <div id="conn-dot" class="conn-dot"></div>
+      <span id="conn-label">Connecting…</span>
     </div>
   </header>
 
-  <main>
-    <div class="stat-card" id="card-pos">
-      <div class="label">Position</div>
-      <div class="value" id="pos">—</div>
+  <div class="dashboard">
+
+    <!-- ── Status cards ───────────────────────────────── -->
+    <div class="stats-row">
+      <div class="stat-card" id="card-pos">
+        <div class="label">Position</div>
+        <div class="value" id="pos">—</div>
+      </div>
+      <div class="stat-card" id="card-battery">
+        <div class="label">Battery</div>
+        <div class="value" id="battery">—</div>
+        <div class="battery-bar-bg">
+          <div class="battery-bar-fill" id="battery-bar" style="width:0%"></div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Status</div>
+        <div class="value" style="font-size:1rem" id="robot-status">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Robot ID</div>
+        <div class="value" style="font-size:0.85rem" id="robot-id">—</div>
+      </div>
     </div>
-    <div class="stat-card" id="card-battery">
-      <div class="label">Battery</div>
-      <div class="value" id="battery">—</div>
+
+    <!-- ── Grid map ───────────────────────────────────── -->
+    <div class="map-panel">
+      <h2>Map — 21×21 Grid</h2>
+      <div class="grid-container" id="grid"></div>
     </div>
-    <div class="stat-card">
-      <div class="label">Status</div>
-      <div class="value" style="font-size:1.1rem" id="robot-status">—</div>
+
+    <!-- ── Side panel ─────────────────────────────────── -->
+    <div class="side-panel">
+
+      <!-- Controls -->
+      <div class="panel-box">
+        <h3>Movement Controls</h3>
+        <div class="controls-grid">
+          <button class="btn-n" onclick="sendMove(0,-1)" title="Move North">▲ N</button>
+          <button class="btn-w" onclick="sendMove(-1,0)" title="Move West">◄ W</button>
+          <button class="btn-reset" onclick="resetRobot()" title="Reset">RST</button>
+          <button class="btn-e" onclick="sendMove(1,0)" title="Move East">E ►</button>
+          <button class="btn-s" onclick="sendMove(0,1)" title="Move South">▼ S</button>
+        </div>
+        <div class="action-row">
+          <button onclick="fetchMap()">Refresh Map</button>
+          <button onclick="fetchSensors()">Read Sensors</button>
+        </div>
+      </div>
+
+      <!-- Sensors -->
+      <div class="panel-box" id="sensor-panel">
+        <h3>Sensor Readings</h3>
+        <div id="sensor-data">
+          <div class="sensor-row">
+            <span class="sensor-label">No data yet</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Telemetry log -->
+      <div class="panel-box">
+        <h3>Activity Log</h3>
+        <div class="log-box" id="log-box"></div>
+      </div>
+
     </div>
-    <div class="stat-card">
-      <div class="label">Robot ID</div>
-      <div class="value" style="font-size:1rem" id="robot-id">—</div>
-    </div>
-  </main>
+  </div>
 
   <script>
     const $ = id => document.getElementById(id);
 
-    async function poll() {
+    // ── State ──────────────────────────────────────────
+    let currentPos = { x: 10, y: 10 };
+    let targetPos = null;
+    let isMoving = false;
+
+    // ── Initialise grid ────────────────────────────────
+    function initGrid() {
+      const grid = $('grid');
+      grid.innerHTML = '';
+      for (let row = 0; row < 21; row++) {
+        for (let col = 0; col < 21; col++) {
+          const cell = document.createElement('div');
+          cell.className = 'cell';
+          cell.dataset.x = col;
+          cell.dataset.y = row;
+          cell.addEventListener('click', () => clickCell(col, row));
+          cell.title = `(${col}, ${row})`;
+          grid.appendChild(cell);
+        }
+      }
+    }
+
+    function updateGrid(robotPos, obstacles = []) {
+      const cells = document.querySelectorAll('.cell');
+      cells.forEach(cell => {
+        cell.classList.remove('robot', 'obstacle', 'target');
+      });
+
+      // Draw obstacles
+      obstacles.forEach(obs => {
+        const idx = obs.y * 21 + obs.x;
+        if (cells[idx]) cells[idx].classList.add('obstacle');
+      });
+
+      // Draw target if set
+      if (targetPos) {
+        const idx = targetPos.y * 21 + targetPos.x;
+        if (cells[idx]) cells[idx].classList.add('target');
+      }
+
+      // Draw robot
+      if (robotPos) {
+        const idx = robotPos.y * 21 + robotPos.x;
+        if (cells[idx]) cells[idx].classList.add('robot');
+      }
+    }
+
+    function clickCell(x, y) {
+      targetPos = { x, y };
+      updateGrid(currentPos);
+      addLog(`Target set: (${x}, ${y})`, 'info');
+    }
+
+    // ── Logging ────────────────────────────────────────
+    function addLog(msg, type = '') {
+      const box = $('log-box');
+      const time = new Date().toLocaleTimeString();
+      const entry = document.createElement('div');
+      entry.className = `log-entry ${type}`;
+      entry.textContent = `[${time}] ${msg}`;
+      box.prepend(entry);
+      // Keep max 50 entries
+      while (box.children.length > 50) box.removeChild(box.lastChild);
+    }
+
+    // ── API calls ──────────────────────────────────────
+    async function fetchStatus() {
       try {
         const r = await fetch('/api/status');
         if (!r.ok) throw new Error(r.statusText);
         const d = await r.json();
 
-        $('conn-dot').className = 'conn-indicator ok';
+        if (d.error) throw new Error(d.error);
+
+        $('conn-dot').className = 'conn-dot ok';
         $('conn-label').textContent = 'Connected';
 
         $('robot-id').textContent = d.id ?? '—';
-        $('pos').textContent = d.position ? `(${d.position.x}, ${d.position.y})` : '—';
         $('robot-status').textContent = d.status ?? '—';
 
-        if (d.battery !== undefined) {
-          $('battery').textContent = `${d.battery.toFixed(1)}%`;
-          const card = $('card-battery');
-          card.className = 'stat-card' + (d.battery < 20 ? ' danger' : d.battery < 40 ? ' warn' : '');
+        if (d.position) {
+          currentPos = d.position;
+          $('pos').textContent = `(${d.position.x}, ${d.position.y})`;
         }
-      } catch {
-        $('conn-dot').className = 'conn-indicator error';
+
+        if (d.battery !== undefined) {
+          const batt = d.battery;
+          $('battery').textContent = `${batt.toFixed(1)}%`;
+          $('battery-bar').style.width = `${Math.max(0, Math.min(100, batt))}%`;
+
+          const card = $('card-battery');
+          const bar = $('battery-bar');
+          card.className = 'stat-card' + (batt < 20 ? ' danger' : batt < 40 ? ' warn' : '');
+          bar.className = 'battery-bar-fill' + (batt < 20 ? ' danger' : batt < 40 ? ' warn' : '');
+        }
+      } catch (e) {
+        $('conn-dot').className = 'conn-dot';
         $('conn-label').textContent = 'Unreachable';
       }
     }
 
-    poll();
-    setInterval(poll, 3000);
+    async function sendMove(dx, dy) {
+      if (isMoving) return;
+      const newX = currentPos.x + dx;
+      const newY = currentPos.y + dy;
+
+      if (newX < 0 || newX > 20 || newY < 0 || newY > 20) {
+        addLog(`Blocked: (${newX}, ${newY}) is out of bounds`, 'error');
+        return;
+      }
+
+      isMoving = true;
+      setControlsDisabled(true);
+      addLog(`Moving to (${newX}, ${newY})…`, 'info');
+
+      try {
+        const r = await fetch('/api/move', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ x: newX, y: newY })
+        });
+        const d = await r.json();
+
+        if (d.error) {
+          addLog(`Move failed: ${d.error}`, 'error');
+        } else {
+          addLog(`Moved to (${newX}, ${newY})`, 'success');
+          await fetchStatus();
+          await fetchMap();
+        }
+      } catch (e) {
+        addLog(`Move error: ${e.message}`, 'error');
+      } finally {
+        isMoving = false;
+        setControlsDisabled(false);
+      }
+    }
+
+    async function resetRobot() {
+      if (!confirm('Reset robot to starting position?')) return;
+      addLog('Resetting robot…', 'info');
+      try {
+        const r = await fetch('/api/reset', { method: 'POST' });
+        const d = await r.json();
+        if (d.error) {
+          addLog(`Reset failed: ${d.error}`, 'error');
+        } else {
+          addLog('Robot reset successfully', 'success');
+          targetPos = null;
+          await fetchStatus();
+          await fetchMap();
+        }
+      } catch (e) {
+        addLog(`Reset error: ${e.message}`, 'error');
+      }
+    }
+
+    async function fetchMap() {
+      try {
+        const r = await fetch('/api/map');
+        const d = await r.json();
+        if (d.error) throw new Error(d.error);
+
+        const obstacles = d.obstacles || [];
+        const robotPos = d.robot || d.position || currentPos;
+        updateGrid(robotPos, obstacles);
+      } catch (e) {
+        // Silently update grid with current known position
+        updateGrid(currentPos);
+      }
+    }
+
+    async function fetchSensors() {
+      try {
+        const r = await fetch('/api/sensors');
+        const d = await r.json();
+        if (d.error) throw new Error(d.error);
+
+        const container = $('sensor-data');
+        container.innerHTML = '';
+
+        // Flatten and display sensor data
+        function displayData(obj, prefix = '') {
+          for (const [key, val] of Object.entries(obj)) {
+            if (typeof val === 'object' && val !== null && !Array.isArray(val)) {
+              displayData(val, `${prefix}${key}.`);
+            } else {
+              const row = document.createElement('div');
+              row.className = 'sensor-row';
+              const label = prefix + key;
+              const displayVal = typeof val === 'number' ? val.toFixed(2) : String(val);
+              row.innerHTML = `<span class="sensor-label">${label}</span><span class="sensor-value">${displayVal}</span>`;
+              container.appendChild(row);
+            }
+          }
+        }
+        displayData(d);
+        addLog('Sensors read successfully', 'success');
+      } catch (e) {
+        addLog(`Sensor error: ${e.message}`, 'error');
+      }
+    }
+
+    function setControlsDisabled(disabled) {
+      document.querySelectorAll('.controls-grid button').forEach(btn => {
+        btn.disabled = disabled;
+      });
+    }
+
+    // ── WebSocket telemetry ────────────────────────────
+    let ws = null;
+    let wsRetryCount = 0;
+
+    function connectWebSocket() {
+      const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${protocol}//${location.host}/ws/telemetry`;
+
+      try {
+        ws = new WebSocket(wsUrl);
+
+        ws.onopen = () => {
+          wsRetryCount = 0;
+          $('conn-dot').className = 'conn-dot ok';
+          $('conn-label').textContent = 'Live (WebSocket)';
+          addLog('WebSocket connected — live telemetry active', 'success');
+        };
+
+        ws.onmessage = (event) => {
+          try {
+            const d = JSON.parse(event.data);
+            if (d.error) {
+              $('conn-dot').className = 'conn-dot';
+              $('conn-label').textContent = 'Robot unreachable';
+              return;
+            }
+
+            $('conn-dot').className = 'conn-dot ok';
+            $('conn-label').textContent = 'Live';
+
+            if (d.position) {
+              currentPos = d.position;
+              $('pos').textContent = `(${d.position.x}, ${d.position.y})`;
+              updateGrid(currentPos);
+            }
+            if (d.battery !== undefined) {
+              const batt = d.battery;
+              $('battery').textContent = `${batt.toFixed(1)}%`;
+              $('battery-bar').style.width = `${Math.max(0, Math.min(100, batt))}%`;
+              const card = $('card-battery');
+              const bar = $('battery-bar');
+              card.className = 'stat-card' + (batt < 20 ? ' danger' : batt < 40 ? ' warn' : '');
+              bar.className = 'battery-bar-fill' + (batt < 20 ? ' danger' : batt < 40 ? ' warn' : '');
+            }
+            if (d.status) $('robot-status').textContent = d.status;
+            if (d.id) $('robot-id').textContent = d.id;
+          } catch (e) { /* ignore parse errors */ }
+        };
+
+        ws.onclose = () => {
+          $('conn-dot').className = 'conn-dot ws';
+          $('conn-label').textContent = 'Reconnecting…';
+          // Exponential backoff reconnect
+          const delay = Math.min(1000 * Math.pow(2, wsRetryCount), 30000);
+          wsRetryCount++;
+          setTimeout(connectWebSocket, delay);
+        };
+
+        ws.onerror = () => { ws.close(); };
+      } catch (e) {
+        // WebSocket not available, fall back to polling
+        addLog('WebSocket unavailable — using polling', 'info');
+      }
+    }
+
+    // ── Keyboard shortcuts ─────────────────────────────
+    document.addEventListener('keydown', (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      switch (e.key) {
+        case 'ArrowUp': case 'w': case 'W': e.preventDefault(); sendMove(0, -1); break;
+        case 'ArrowDown': case 's': case 'S': e.preventDefault(); sendMove(0, 1); break;
+        case 'ArrowLeft': case 'a': case 'A': e.preventDefault(); sendMove(-1, 0); break;
+        case 'ArrowRight': case 'd': case 'D': e.preventDefault(); sendMove(1, 0); break;
+        case 'r': case 'R': resetRobot(); break;
+      }
+    });
+
+    // ── Initialise ─────────────────────────────────────
+    initGrid();
+    fetchStatus();
+    fetchMap();
+    connectWebSocket();
+
+    // Polling fallback (less frequent when WS is active)
+    setInterval(() => {
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        fetchStatus();
+      }
+    }, 3000);
+
+    // Periodic map refresh
+    setInterval(fetchMap, 5000);
+
+    addLog('Dashboard initialised', 'info');
   </script>
 
 </body>
