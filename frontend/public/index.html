@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>GCS — Dashboard</title>
+  <title>GCS — Ground Control Station</title>
   <style>
     * {
       box-sizing: border-box;
@@ -13,74 +13,338 @@
     }
 
     body {
-      font-family: 'Segoe UI', sans-serif;
-      background: #f4f6f9;
-      color: #0a2342;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #0f1923;
+      color: #e0e6ed;
+      min-height: 100vh;
     }
 
+    /* ── Header ─────────────────────────────────────────── */
     header {
-      background: #0a2342;
-      color: white;
-      padding: 0.75rem 1.5rem;
+      background: #1a2736;
+      border-bottom: 1px solid #2a3a4e;
+      padding: 0.6rem 1.5rem;
       display: flex;
       justify-content: space-between;
       align-items: center;
     }
 
     header h1 {
-      font-size: 1.1rem;
+      font-size: 1rem;
       letter-spacing: 2px;
+      color: #4fc3f7;
     }
 
-    .conn-indicator {
+    .conn-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.8rem;
+    }
+
+    .conn-dot {
       width: 10px;
       height: 10px;
       border-radius: 50%;
-      display: inline-block;
-      margin-right: 6px;
-    }
-
-    .conn-indicator.ok {
-      background: #26a69a;
-    }
-
-    .conn-indicator.error {
       background: #c62828;
+      transition: background 0.3s;
     }
 
-    main {
+    .conn-dot.ok {
+      background: #2e7d32;
+    }
+
+    .conn-dot.ws {
+      background: #f9a825;
+    }
+
+    /* ── Layout ─────────────────────────────────────────── */
+    .dashboard {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: 1fr 320px;
+      grid-template-rows: auto 1fr;
       gap: 1rem;
       padding: 1rem;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    /* ── Stat cards row ─────────────────────────────────── */
+    .stats-row {
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.75rem;
     }
 
     .stat-card {
-      background: white;
+      background: #1a2736;
+      border: 1px solid #2a3a4e;
       border-radius: 8px;
-      padding: 1rem 1.2rem;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, .08);
+      padding: 0.8rem 1rem;
       text-align: center;
     }
 
     .stat-card .label {
-      font-size: .72rem;
-      color: #5a6a85;
+      font-size: 0.65rem;
+      color: #7a8fa6;
       text-transform: uppercase;
+      letter-spacing: 1px;
     }
 
     .stat-card .value {
-      font-size: 1.6rem;
+      font-size: 1.5rem;
       font-weight: 700;
-      margin-top: 6px;
+      margin-top: 4px;
+      color: #e0e6ed;
     }
 
     .stat-card.warn .value {
-      color: #e8a020;
+      color: #f9a825;
     }
 
     .stat-card.danger .value {
-      color: #c62828;
+      color: #ef5350;
+    }
+
+    /* ── Grid map ───────────────────────────────────────── */
+    .map-panel {
+      background: #1a2736;
+      border: 1px solid #2a3a4e;
+      border-radius: 8px;
+      padding: 1rem;
+    }
+
+    .map-panel h2 {
+      font-size: 0.75rem;
+      color: #7a8fa6;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 0.75rem;
+    }
+
+    .grid-container {
+      display: grid;
+      grid-template-columns: repeat(21, 1fr);
+      gap: 1px;
+      aspect-ratio: 1;
+      max-width: 100%;
+    }
+
+    .cell {
+      aspect-ratio: 1;
+      background: #223344;
+      border-radius: 2px;
+      transition: background 0.2s;
+    }
+
+    .cell.robot {
+      background: #4fc3f7;
+      border-radius: 50%;
+      box-shadow: 0 0 6px #4fc3f7;
+    }
+
+    .cell.obstacle {
+      background: #ef5350;
+    }
+
+    .cell.target {
+      background: #66bb6a;
+      border-radius: 50%;
+    }
+
+    .cell:hover {
+      background: #2a4a5e;
+      cursor: pointer;
+    }
+
+    /* ── Side panel ─────────────────────────────────────── */
+    .side-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .panel-box {
+      background: #1a2736;
+      border: 1px solid #2a3a4e;
+      border-radius: 8px;
+      padding: 1rem;
+    }
+
+    .panel-box h3 {
+      font-size: 0.7rem;
+      color: #7a8fa6;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 0.75rem;
+    }
+
+    /* ── Controls ───────────────────────────────────────── */
+    .controls-grid {
+      display: grid;
+      grid-template-areas:
+        ".  N  ."
+        "W  R  E"
+        ".  S  .";
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+    }
+
+    .controls-grid button {
+      padding: 10px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      border: 1px solid #3a5068;
+      background: #223344;
+      color: #e0e6ed;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .controls-grid button:hover {
+      background: #2a4a5e;
+      border-color: #4fc3f7;
+    }
+
+    .controls-grid button:active {
+      background: #4fc3f7;
+      color: #0f1923;
+    }
+
+    .controls-grid button:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .btn-n {
+      grid-area: N;
+    }
+
+    .btn-s {
+      grid-area: S;
+    }
+
+    .btn-e {
+      grid-area: E;
+    }
+
+    .btn-w {
+      grid-area: W;
+    }
+
+    .btn-reset {
+      grid-area: R;
+      font-size: 0.7rem !important;
+      color: #ef5350 !important;
+    }
+
+    /* ── Action buttons ─────────────────────────────────── */
+    .action-row {
+      display: flex;
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .action-row button {
+      flex: 1;
+      padding: 8px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      border: 1px solid #3a5068;
+      background: #223344;
+      color: #e0e6ed;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .action-row button:hover {
+      background: #2a4a5e;
+    }
+
+    /* ── Sensor panel ───────────────────────────────────── */
+    .sensor-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 4px 0;
+      border-bottom: 1px solid #1f2f3f;
+      font-size: 0.8rem;
+    }
+
+    .sensor-row:last-child {
+      border-bottom: none;
+    }
+
+    .sensor-label {
+      color: #7a8fa6;
+    }
+
+    .sensor-value {
+      font-weight: 600;
+    }
+
+    /* ── Telemetry log ──────────────────────────────────── */
+    .log-box {
+      background: #0f1923;
+      border: 1px solid #2a3a4e;
+      border-radius: 4px;
+      padding: 8px;
+      max-height: 160px;
+      overflow-y: auto;
+      font-family: 'Consolas', 'Courier New', monospace;
+      font-size: 0.7rem;
+      line-height: 1.5;
+      color: #7a8fa6;
+    }
+
+    .log-entry.error {
+      color: #ef5350;
+    }
+
+    .log-entry.info {
+      color: #4fc3f7;
+    }
+
+    .log-entry.success {
+      color: #66bb6a;
+    }
+
+    /* ── Battery bar ────────────────────────────────────── */
+    .battery-bar-bg {
+      width: 100%;
+      height: 6px;
+      background: #223344;
+      border-radius: 3px;
+      margin-top: 6px;
+      overflow: hidden;
+    }
+
+    .battery-bar-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.5s, background 0.5s;
+      background: #2e7d32;
+    }
+
+    .battery-bar-fill.warn {
+      background: #f9a825;
+    }
+
+    .battery-bar-fill.danger {
+      background: #ef5350;
+    }
+
+    /* ── Responsive ─────────────────────────────────────── */
+    @media (max-width: 900px) {
+      .dashboard {
+        grid-template-columns: 1fr;
+      }
+
+      .stats-row {
+        grid-template-columns: repeat(2, 1fr);
+      }
     }
   </style>
 </head>

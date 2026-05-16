@@ -3,10 +3,25 @@ from fastapi import APIRouter, HTTPException
 
 router = APIRouter()
 
+MISSION_RULES = {
+    1: ("recon", 10),
+    2: ("transport", 5),
+}
+MAX_SCORE = 100
+
+
+def _compute_base_score(distance: float, battery: float, multiplier: float) -> float:
+    if distance <= 0 or battery <= 0:
+        return 0
+    return (distance * multiplier) / battery
+
+
+def _cap_score(score: float) -> float:
+    return min(score, MAX_SCORE)
+
 
 @router.post("/api/mission_stats")
 def calc_stats(data: dict):
-    # Smell 1:
     try:
         t = data["type"]
         d = data["dist"]
@@ -15,37 +30,18 @@ def calc_stats(data: dict):
     except KeyError:
         raise HTTPException(status_code=400, detail="Missing required data")
 
-    score = 0
-    status = "unknown"
-
-    # Smell 2:
-    if t == 1:
-        status = "recon"
-        if d > 0 and b > 0:
-            score = (d * 10) / b
-        else:
-            score = 0
-
-        # Smell 3: Duplicated capping logic
-        if score > 100:
-            score = 100
-
-    elif t == 2:
-        status = "transport"
-        if d > 0 and b > 0:
-            score = (d * 5) / b
-            if payload > 50:
-                score = score - (payload * 0.1)
-        else:
-            score = 0
-
-        if score > 100:
-            score = 100
-
-    else:
+    mission = MISSION_RULES.get(t)
+    if mission is None:
         return {"status": "error", "msg": "invalid mission type"}
 
-    # Smell 4:
+    status, multiplier = mission
+    score = _compute_base_score(d, b, multiplier)
+
+    if status == "transport" and payload > 50 and score > 0:
+        score = score - (payload * 0.1)
+
+    score = _cap_score(score)
+
     query = f"INSERT INTO stats (mission, score) VALUES ('{status}', {score})"
     print(f"[DB LOG] {query}")
 
