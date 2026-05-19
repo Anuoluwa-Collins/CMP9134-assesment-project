@@ -19,7 +19,7 @@
       min-height: 100vh;
     }
 
-    /* ── Header ─────────────────────────────────────────── */
+   
     header {
       background: #1a2736;
       border-bottom: 1px solid #2a3a4e;
@@ -58,7 +58,7 @@
       background: #f9a825;
     }
 
-    /* ── Layout ─────────────────────────────────────────── */
+
     .dashboard {
       display: grid;
       grid-template-columns: 1fr 320px;
@@ -69,7 +69,7 @@
       margin: 0 auto;
     }
 
-    /* ── Stat cards row ─────────────────────────────────── */
+   
     .stats-row {
       grid-column: 1 / -1;
       display: grid;
@@ -158,7 +158,7 @@
       cursor: pointer;
     }
 
-    /* ── Side panel ─────────────────────────────────────── */
+    
     .side-panel {
       display: flex;
       flex-direction: column;
@@ -180,7 +180,7 @@
       margin-bottom: 0.75rem;
     }
 
-    /* ── Controls ───────────────────────────────────────── */
+
     .controls-grid {
       display: grid;
       grid-template-areas:
@@ -240,7 +240,7 @@
       color: #ef5350 !important;
     }
 
-    /* ── Action buttons ─────────────────────────────────── */
+  
     .action-row {
       display: flex;
       gap: 6px;
@@ -264,7 +264,7 @@
       background: #2a4a5e;
     }
 
-    /* ── Sensor panel ───────────────────────────────────── */
+  
     .sensor-row {
       display: flex;
       justify-content: space-between;
@@ -285,7 +285,7 @@
       font-weight: 600;
     }
 
-    /* ── Telemetry log ──────────────────────────────────── */
+
     .log-box {
       background: #0f1923;
       border: 1px solid #2a3a4e;
@@ -311,7 +311,7 @@
       color: #66bb6a;
     }
 
-    /* ── Battery bar ────────────────────────────────────── */
+   
     .battery-bar-bg {
       width: 100%;
       height: 6px;
@@ -336,7 +336,7 @@
       background: #ef5350;
     }
 
-    /* ── Responsive ─────────────────────────────────────── */
+   
     @media (max-width: 900px) {
       .dashboard {
         grid-template-columns: 1fr;
@@ -361,7 +361,7 @@
 
   <div class="dashboard">
 
-    <!-- ── Status cards ───────────────────────────────── -->
+    
     <div class="stats-row">
       <div class="stat-card" id="card-pos">
         <div class="label">Position</div>
@@ -384,16 +384,16 @@
       </div>
     </div>
 
-    <!-- ── Grid map ───────────────────────────────────── -->
+    
     <div class="map-panel">
       <h2>Map — 21×21 Grid</h2>
       <div class="grid-container" id="grid"></div>
     </div>
 
-    <!-- ── Side panel ─────────────────────────────────── -->
+   
     <div class="side-panel">
 
-      <!-- Controls -->
+      
       <div class="panel-box">
         <h3>Movement Controls</h3>
         <div class="controls-grid">
@@ -409,7 +409,7 @@
         </div>
       </div>
 
-      <!-- Sensors -->
+      
       <div class="panel-box" id="sensor-panel">
         <h3>Sensor Readings</h3>
         <div id="sensor-data">
@@ -419,7 +419,7 @@
         </div>
       </div>
 
-      <!-- Telemetry log -->
+      
       <div class="panel-box">
         <h3>Activity Log</h3>
         <div class="log-box" id="log-box"></div>
@@ -431,12 +431,12 @@
   <script>
     const $ = id => document.getElementById(id);
 
-    // ── State ──────────────────────────────────────────
+   
     let currentPos = { x: 10, y: 10 };
     let targetPos = null;
     let isMoving = false;
 
-    // ── Initialise grid ────────────────────────────────
+  
     function initGrid() {
       const grid = $('grid');
       grid.innerHTML = '';
@@ -459,19 +459,19 @@
         cell.classList.remove('robot', 'obstacle', 'target');
       });
 
-      // Draw obstacles
+      
       obstacles.forEach(obs => {
         const idx = obs.y * 21 + obs.x;
         if (cells[idx]) cells[idx].classList.add('obstacle');
       });
 
-      // Draw target if set
+      
       if (targetPos) {
         const idx = targetPos.y * 21 + targetPos.x;
         if (cells[idx]) cells[idx].classList.add('target');
       }
 
-      // Draw robot
+      
       if (robotPos) {
         const idx = robotPos.y * 21 + robotPos.x;
         if (cells[idx]) cells[idx].classList.add('robot');
@@ -484,7 +484,7 @@
       addLog(`Target set: (${x}, ${y})`, 'info');
     }
 
-    // ── Logging ────────────────────────────────────────
+   
     function addLog(msg, type = '') {
       const box = $('log-box');
       const time = new Date().toLocaleTimeString();
@@ -492,11 +492,11 @@
       entry.className = `log-entry ${type}`;
       entry.textContent = `[${time}] ${msg}`;
       box.prepend(entry);
-      // Keep max 50 entries
+      
       while (box.children.length > 50) box.removeChild(box.lastChild);
     }
 
-    // ── API calls ──────────────────────────────────────
+    
     async function fetchStatus() {
       try {
         const r = await fetch('/api/status');
@@ -598,7 +598,7 @@
         const robotPos = d.robot || d.position || currentPos;
         updateGrid(robotPos, obstacles);
       } catch (e) {
-        // Silently update grid with current known position
+      
         updateGrid(currentPos);
       }
     }
@@ -612,7 +612,7 @@
         const container = $('sensor-data');
         container.innerHTML = '';
 
-        // Flatten and display sensor data
+     
         function displayData(obj, prefix = '') {
           for (const [key, val] of Object.entries(obj)) {
             if (typeof val === 'object' && val !== null && !Array.isArray(val)) {
@@ -640,7 +640,7 @@
       });
     }
 
-    // ── WebSocket telemetry ────────────────────────────
+    
     let ws = null;
     let wsRetryCount = 0;
 
@@ -692,7 +692,7 @@
         ws.onclose = () => {
           $('conn-dot').className = 'conn-dot ws';
           $('conn-label').textContent = 'Reconnecting…';
-          // Exponential backoff reconnect
+         
           const delay = Math.min(1000 * Math.pow(2, wsRetryCount), 30000);
           wsRetryCount++;
           setTimeout(connectWebSocket, delay);
@@ -700,12 +700,12 @@
 
         ws.onerror = () => { ws.close(); };
       } catch (e) {
-        // WebSocket not available, fall back to polling
+        
         addLog('WebSocket unavailable — using polling', 'info');
       }
     }
 
-    // ── Keyboard shortcuts ─────────────────────────────
+    
     document.addEventListener('keydown', (e) => {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
       switch (e.key) {
@@ -717,20 +717,20 @@
       }
     });
 
-    // ── Initialise ─────────────────────────────────────
+    
     initGrid();
     fetchStatus();
     fetchMap();
     connectWebSocket();
 
-    // Polling fallback (less frequent when WS is active)
+    
     setInterval(() => {
       if (!ws || ws.readyState !== WebSocket.OPEN) {
         fetchStatus();
       }
     }, 3000);
 
-    // Periodic map refresh
+
     setInterval(fetchMap, 5000);
 
     addLog('Dashboard initialised', 'info');
