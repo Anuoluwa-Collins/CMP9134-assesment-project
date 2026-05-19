@@ -14,11 +14,11 @@ import enum
 from datetime import datetime, timezone
 
 from sqlalchemy import (
-    Column, Integer, String, DateTime, Enum as SAEnum,
+    Column, Integer, String, Float, DateTime, Enum as SAEnum,
     ForeignKey, Text, create_engine,
 )
 from sqlalchemy.orm import (
-    declarative_base, sessionmaker, relationship,
+    declarative_base, sessionmaker, relationship, Session,
 )
 
 # ── Configuration ─────────────────────────────────────────────────────────
@@ -29,8 +29,7 @@ DATABASE_URL = os.getenv(
 
 engine = create_engine(
     DATABASE_URL,
-    connect_args={
-        "check_same_thread": False} if "sqlite" in DATABASE_URL else {},
+    connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {},
     echo=False,
 )
 
@@ -117,10 +116,7 @@ class MissionLog(Base):
     user = relationship("User", back_populates="logs")
 
     def __repr__(self) -> str:
-        return (
-            f"<MissionLog {self.command_type.value}"
-            f" by user_id={self.user_id}>"
-        )
+        return f"<MissionLog {self.command_type.value} by user_id={self.user_id}>"
 
 
 # ── Database initialisation ──────────────────────────────────────────────

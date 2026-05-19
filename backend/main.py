@@ -17,7 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from auth import router as auth_router, require_viewer, require_commander
+from auth import router as auth_router, require_viewer, require_commander, get_current_user
 from database import init_db, get_db, MissionLog, CommandType, User
 from legacy_stats import router as legacy_stats_router
 from robot_client import robot, RobotConnectionError
@@ -69,10 +69,7 @@ def _log_command(
 # ── Application factory ──────────────────────────────────────────────────
 app = FastAPI(
     title="Ground Control Station",
-    description=(
-        "CMP9134 — Robot Management System"
-        " with Authentication and Audit Logging"
-    ),
+    description="CMP9134 — Robot Management System with Authentication and Audit Logging",
     version="1.0.0",
 )
 
@@ -142,11 +139,9 @@ async def move_robot(
     try:
         result = await robot.move(request.x, request.y)
         logger.info("Move command sent by %s: (%d, %d)",
-                    current_user.username, request.x, request.y)
-        _log_command(
-            db, CommandType.MOVE, current_user,
-            payload=payload, response=result,
-            robot_status=result.get("status", "unknown"))
+                     current_user.username, request.x, request.y)
+        _log_command(db, CommandType.MOVE, current_user, payload=payload,
+                     response=result, robot_status=result.get("status", "unknown"))
         return result
     except RobotConnectionError as exc:
         logger.warning("Move command failed: %s", exc)
@@ -186,8 +181,7 @@ async def get_map(
     """Fetch the current 21x21 map grid with obstacles and robot position."""
     try:
         result = await robot.get_map()
-        _log_command(db, CommandType.MAP, current_user,
-                     response={"grid": "ok"})
+        _log_command(db, CommandType.MAP, current_user, response={"grid": "ok"})
         return result
     except RobotConnectionError as exc:
         logger.warning("Map request failed: %s", exc)
@@ -203,8 +197,7 @@ async def get_sensors(
     """Fetch current sensor readings from the robot."""
     try:
         result = await robot.get_sensors()
-        _log_command(db, CommandType.SENSOR, current_user,
-                     response={"sensors": "ok"})
+        _log_command(db, CommandType.SENSOR, current_user, response={"sensors": "ok"})
         return result
     except RobotConnectionError as exc:
         logger.warning("Sensor request failed: %s", exc)

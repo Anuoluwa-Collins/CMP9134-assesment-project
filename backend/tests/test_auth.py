@@ -9,9 +9,7 @@ from main import app
 @pytest.fixture
 async def async_client():
     transport = ASGITransport(app=app)
-    async with AsyncClient(
-        transport=transport, base_url="http://test"
-    ) as client:
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
         yield client
 
 
@@ -35,8 +33,7 @@ async def test_register_success(async_client):
 @pytest.mark.asyncio
 async def test_register_duplicate_username(async_client):
     """Registering the same username twice returns 409."""
-    payload = {"username": "dupeuser",
-               "password": "securepass", "role": "viewer"}
+    payload = {"username": "dupeuser", "password": "securepass", "role": "viewer"}
     await async_client.post("/api/auth/register", json=payload)
     response = await async_client.post("/api/auth/register", json=payload)
     assert response.status_code == 409

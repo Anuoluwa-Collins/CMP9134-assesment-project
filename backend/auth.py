@@ -30,8 +30,7 @@ from sqlalchemy.orm import Session
 from database import get_db, User, UserRole
 
 # ── Configuration ─────────────────────────────────────────────────────────
-SECRET_KEY = os.getenv(
-    "JWT_SECRET_KEY", "change-me-in-production-use-a-real-secret")
+SECRET_KEY = os.getenv("JWT_SECRET_KEY", "change-me-in-production-use-a-real-secret")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("TOKEN_EXPIRE_MINUTES", "60"))
 
@@ -89,8 +88,7 @@ def verify_password(plain: str, hashed: str) -> bool:
 
 # ── JWT helpers ───────────────────────────────────────────────────────────
 
-def create_access_token(
-        data: dict, expires_delta: timedelta | None = None) -> str:
+def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
     """Create a signed JWT access token.
 
     Args:
@@ -204,8 +202,7 @@ def login(
     Returns 401 if credentials are invalid.
     """
     user = db.query(User).filter(User.username == form_data.username).first()
-    if not user or not verify_password(
-            form_data.password, user.hashed_password):
+    if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",

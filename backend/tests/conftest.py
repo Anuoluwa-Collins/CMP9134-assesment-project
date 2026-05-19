@@ -9,9 +9,9 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 # Use SQLite for tests (not PostgreSQL)
 os.environ["DATABASE_URL"] = "sqlite:///./test.db"
 
-import pytest  # noqa: E402
-from database import Base, engine, SessionLocal, User, UserRole  # noqa: E402
-from auth import hash_password, create_access_token  # noqa: E402
+import pytest
+from database import init_db, Base, engine, SessionLocal, User, UserRole
+from auth import hash_password, create_access_token
 
 
 @pytest.fixture(autouse=True)
@@ -43,8 +43,7 @@ def test_commander(db_session):
     db_session.add(user)
     db_session.commit()
     db_session.refresh(user)
-    token = create_access_token(
-        {"sub": user.username, "role": user.role.value})
+    token = create_access_token({"sub": user.username, "role": user.role.value})
     return user, token
 
 
@@ -59,8 +58,7 @@ def test_viewer(db_session):
     db_session.add(user)
     db_session.commit()
     db_session.refresh(user)
-    token = create_access_token(
-        {"sub": user.username, "role": user.role.value})
+    token = create_access_token({"sub": user.username, "role": user.role.value})
     return user, token
 
 

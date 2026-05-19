@@ -43,15 +43,12 @@ async def test_status_requires_auth(async_client):
 
 
 @pytest.mark.asyncio
-async def test_status_success_with_commander(
-        async_client, test_commander, mock_robot_status):
+async def test_status_success_with_commander(async_client, test_commander, mock_robot_status):
     """Status endpoint returns robot data for authenticated commander."""
     _, token = test_commander
     with patch("main.robot.get_status", new_callable=AsyncMock) as mock:
         mock.return_value = mock_robot_status
-        response = await async_client.get(
-            "/api/status", headers=auth_header(token)
-        )
+        response = await async_client.get("/api/status", headers=auth_header(token))
 
     assert response.status_code == 200
     data = response.json()
@@ -60,15 +57,12 @@ async def test_status_success_with_commander(
 
 
 @pytest.mark.asyncio
-async def test_status_success_with_viewer(
-        async_client, test_viewer, mock_robot_status):
+async def test_status_success_with_viewer(async_client, test_viewer, mock_robot_status):
     """Status endpoint is accessible to viewers."""
     _, token = test_viewer
     with patch("main.robot.get_status", new_callable=AsyncMock) as mock:
         mock.return_value = mock_robot_status
-        response = await async_client.get(
-            "/api/status", headers=auth_header(token)
-        )
+        response = await async_client.get("/api/status", headers=auth_header(token))
 
     assert response.status_code == 200
     assert response.json()["id"] == "robot-001"
@@ -80,9 +74,7 @@ async def test_status_robot_unreachable(async_client, test_viewer):
     _, token = test_viewer
     with patch("main.robot.get_status", new_callable=AsyncMock) as mock:
         mock.side_effect = RobotConnectionError("Robot unreachable")
-        response = await async_client.get(
-            "/api/status", headers=auth_header(token)
-        )
+        response = await async_client.get("/api/status", headers=auth_header(token))
 
     assert response.status_code == 200
     assert "error" in response.json()
@@ -149,9 +141,7 @@ async def test_move_missing_fields(async_client, test_commander):
 async def test_reset_forbidden_for_viewer(async_client, test_viewer):
     """Reset endpoint returns 403 for viewer role."""
     _, token = test_viewer
-    response = await async_client.post(
-            "/api/reset", headers=auth_header(token)
-        )
+    response = await async_client.post("/api/reset", headers=auth_header(token))
     assert response.status_code == 403
 
 
@@ -161,9 +151,7 @@ async def test_reset_success_for_commander(async_client, test_commander):
     _, token = test_commander
     with patch("main.robot.reset", new_callable=AsyncMock) as mock:
         mock.return_value = {"status": "ok", "message": "Robot reset"}
-        response = await async_client.post(
-            "/api/reset", headers=auth_header(token)
-        )
+        response = await async_client.post("/api/reset", headers=auth_header(token))
 
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
@@ -177,9 +165,7 @@ async def test_map_success(async_client, test_viewer, mock_map_data):
     _, token = test_viewer
     with patch("main.robot.get_map", new_callable=AsyncMock) as mock:
         mock.return_value = mock_map_data
-        response = await async_client.get(
-            "/api/map", headers=auth_header(token)
-        )
+        response = await async_client.get("/api/map", headers=auth_header(token))
 
     assert response.status_code == 200
     assert response.json()["grid_size"] == 21
@@ -193,10 +179,7 @@ async def test_sensors_success(async_client, test_viewer, mock_sensor_data):
     _, token = test_viewer
     with patch("main.robot.get_sensors", new_callable=AsyncMock) as mock:
         mock.return_value = mock_sensor_data
-        response = await async_client.get(
-            "/api/sensors",
-            headers=auth_header(token)
-        )
+        response = await async_client.get("/api/sensors", headers=auth_header(token))
 
     assert response.status_code == 200
     assert response.json()["temperature"] == 22.5
