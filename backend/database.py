@@ -6,11 +6,11 @@ import enum
 from datetime import datetime, timezone
 
 from sqlalchemy import (
-    Column, Integer, String, Float, DateTime, Enum as SAEnum,
+    Column, Integer, String, DateTime, Enum as SAEnum,
     ForeignKey, Text, create_engine,
 )
 from sqlalchemy.orm import (
-    declarative_base, sessionmaker, relationship, Session,
+    declarative_base, sessionmaker, relationship,
 )
 
 #  Configuration 

@@ -17,7 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from auth import router as auth_router, require_viewer, require_commander, get_current_user
+from auth import router as auth_router, require_viewer, require_commander
 from database import init_db, get_db, MissionLog, CommandType, User
 from legacy_stats import router as legacy_stats_router
 from robot_client import robot, RobotConnectionError
@@ -139,7 +139,7 @@ async def move_robot(
     try:
         result = await robot.move(request.x, request.y)
         logger.info("Move command sent by %s: (%d, %d)",
-                     current_user.username, request.x, request.y)
+                    current_user.username, request.x, request.y)
         _log_command(db, CommandType.MOVE, current_user, payload=payload,
                      response=result, robot_status=result.get("status", "unknown"))
         return result

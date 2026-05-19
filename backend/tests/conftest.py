@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 os.environ["DATABASE_URL"] = "sqlite:///./test.db"
 
 import pytest
-from database import init_db, Base, engine, SessionLocal, User, UserRole
+from database import Base, engine, SessionLocal, User, UserRole
 from auth import hash_password, create_access_token
 
 
