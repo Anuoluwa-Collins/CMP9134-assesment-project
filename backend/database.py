@@ -1,11 +1,3 @@
-"""
-Database configuration and ORM models.
-======================================
-
-Uses SQLAlchemy (async) with SQLite for local development and
-PostgreSQL in production. Models cover user accounts and the
-mission audit-log required by the assessment brief.
-"""
 
 from __future__ import annotations
 
@@ -21,7 +13,7 @@ from sqlalchemy.orm import (
     declarative_base, sessionmaker, relationship, Session,
 )
 
-# ── Configuration ─────────────────────────────────────────────────────────
+#  Configuration 
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
     "sqlite:///./gcs.db",          # default: local SQLite file
@@ -38,7 +30,7 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 
-# ── Enums ─────────────────────────────────────────────────────────────────
+#  Enums 
 
 class UserRole(str, enum.Enum):
     """Role-Based Access Control roles."""
@@ -57,7 +49,7 @@ class CommandType(str, enum.Enum):
     REGISTER = "register"
 
 
-# ── Models ────────────────────────────────────────────────────────────────
+#  Models 
 
 class User(Base):
     """User account with role-based access control.
@@ -119,7 +111,7 @@ class MissionLog(Base):
         return f"<MissionLog {self.command_type.value} by user_id={self.user_id}>"
 
 
-# ── Database initialisation ──────────────────────────────────────────────
+#  Database initialisation 
 
 def init_db() -> None:
     """Create all tables if they don't exist."""

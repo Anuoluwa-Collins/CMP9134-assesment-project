@@ -22,7 +22,7 @@ from database import init_db, get_db, MissionLog, CommandType, User
 from legacy_stats import router as legacy_stats_router
 from robot_client import robot, RobotConnectionError
 
-# ── Configuration ─────────────────────────────────────────────────────────
+#  Configuration 
 ROBOT_API_URL = os.getenv("ROBOT_API_URL", "http://localhost:5000")
 LOG_LEVEL = os.getenv("LOG_LEVEL", "info")
 
@@ -30,14 +30,14 @@ logging.basicConfig(level=LOG_LEVEL.upper())
 logger = logging.getLogger(__name__)
 
 
-# ── Request/Response models ───────────────────────────────────────────────
+#  Request/Response models 
 class MoveRequest(BaseModel):
     """Validated request body for the move endpoint."""
     x: int = Field(..., ge=0, le=20, description="Target X coordinate (0-20)")
     y: int = Field(..., ge=0, le=20, description="Target Y coordinate (0-20)")
 
 
-# ── Audit-log helper ──────────────────────────────────────────────────────
+#  Audit-log helper 
 
 def _log_command(
     db: Session,
@@ -66,7 +66,7 @@ def _log_command(
     return entry
 
 
-# ── Application factory ──────────────────────────────────────────────────
+#  Application factory 
 app = FastAPI(
     title="Ground Control Station",
     description="CMP9134 — Robot Management System with Authentication and Audit Logging",
@@ -86,7 +86,7 @@ app.include_router(auth_router)
 app.include_router(legacy_stats_router)
 
 
-# ── Startup event — create DB tables ─────────────────────────────────────
+#  Startup event — create DB tables 
 @app.on_event("startup")
 def on_startup():
     """Initialise the database tables on application boot."""
@@ -94,13 +94,13 @@ def on_startup():
     logger.info("Database tables created / verified")
 
 
-# ── Health check ──────────────────────────────────────────────────────────
+#  Health check 
 @app.get("/health", include_in_schema=False)
 def health():
     return {"status": "ok"}
 
 
-# ── Robot status (VIEWER or COMMANDER) ────────────────────────────────────
+#  Robot status (VIEWER or COMMANDER) 
 @app.get("/api/status")
 async def get_status(
     current_user: User = Depends(require_viewer),
@@ -123,7 +123,7 @@ async def get_status(
         return {"error": str(exc)}
 
 
-# ── Move robot (COMMANDER only) ──────────────────────────────────────────
+#  Move robot (COMMANDER only) ─────────────────────────────────────────
 @app.post("/api/move")
 async def move_robot(
     request: MoveRequest,
@@ -150,7 +150,7 @@ async def move_robot(
         return {"error": str(exc)}
 
 
-# ── Reset robot (COMMANDER only) ─────────────────────────────────────────
+#  Reset robot (COMMANDER only) 
 @app.post("/api/reset")
 async def reset_robot(
     current_user: User = Depends(require_commander),
@@ -172,7 +172,7 @@ async def reset_robot(
         return {"error": str(exc)}
 
 
-# ── Map data (any authenticated user) ────────────────────────────────────
+#  Map data (any authenticated user) 
 @app.get("/api/map")
 async def get_map(
     current_user: User = Depends(require_viewer),
@@ -188,7 +188,7 @@ async def get_map(
         return {"error": str(exc)}
 
 
-# ── Sensor data (any authenticated user) ─────────────────────────────────
+#  Sensor data (any authenticated user) 
 @app.get("/api/sensors")
 async def get_sensors(
     current_user: User = Depends(require_viewer),
@@ -204,7 +204,7 @@ async def get_sensors(
         return {"error": str(exc)}
 
 
-# ── Mission audit log endpoint ───────────────────────────────────────────
+#  Mission audit log endpoint 
 @app.get("/api/logs")
 def get_logs(
     limit: int = Query(50, ge=1, le=500, description="Number of log entries"),
@@ -236,7 +236,7 @@ def get_logs(
     ]
 
 
-# ── WebSocket telemetry feed ──────────────────────────────────────────────
+#  WebSocket telemetry feed 
 @app.websocket("/ws/telemetry")
 async def ws_telemetry(websocket: WebSocket):
     """Stream live robot telemetry data to connected browser clients.

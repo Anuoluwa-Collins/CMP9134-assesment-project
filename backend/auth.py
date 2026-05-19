@@ -1,18 +1,3 @@
-"""
-Authentication & authorisation module.
-======================================
-
-Implements JWT-based authentication with Role-Based Access Control
-(RBAC) differentiating VIEWER (read-only) and COMMANDER (full
-control) roles, as required by the assessment brief.
-
-Features:
-- User registration with bcrypt password hashing
-- Login returning a signed JWT access token
-- Dependency-injection helpers for protecting routes
-- Role-based guards (require_viewer, require_commander)
-"""
-
 from __future__ import annotations
 
 import os
@@ -29,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from database import get_db, User, UserRole
 
-# ── Configuration ─────────────────────────────────────────────────────────
+#  Configuration 
 SECRET_KEY = os.getenv("JWT_SECRET_KEY", "change-me-in-production-use-a-real-secret")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("TOKEN_EXPIRE_MINUTES", "60"))
@@ -42,7 +27,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 
 
-# ── Pydantic schemas ──────────────────────────────────────────────────────
+# Pydantic schemas 
 
 class RegisterRequest(BaseModel):
     """Request body for user registration."""
@@ -74,7 +59,7 @@ class UserInfo(BaseModel):
     role: str
 
 
-# ── Password helpers ──────────────────────────────────────────────────────
+#  Password help
 
 def hash_password(plain: str) -> str:
     """Hash a plaintext password with bcrypt."""
@@ -86,7 +71,7 @@ def verify_password(plain: str, hashed: str) -> bool:
     return pwd_context.verify(plain, hashed)
 
 
-# ── JWT helpers ───────────────────────────────────────────────────────────
+# JWT helpers 
 
 def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
     """Create a signed JWT access token.
@@ -106,7 +91,7 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 
-# ── Dependency: get current user from JWT ─────────────────────────────────
+# Dependency: get current user from JWT 
 
 async def get_current_user(
     token: Annotated[str, Depends(oauth2_scheme)],
@@ -136,7 +121,7 @@ async def get_current_user(
     return user
 
 
-# ── Role-based guards ─────────────────────────────────────────────────────
+# guards 
 
 async def require_viewer(
     current_user: Annotated[User, Depends(get_current_user)],
@@ -157,7 +142,7 @@ async def require_commander(
     return current_user
 
 
-# ── Routes ────────────────────────────────────────────────────────────────
+# Routes 
 
 @router.post("/register", response_model=RegisterResponse, status_code=201)
 def register(req: RegisterRequest, db: Session = Depends(get_db)):
