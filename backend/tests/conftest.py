@@ -6,7 +6,62 @@ import os
 # Add backend directory to path so tests can import modules
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-import pytest
+# Use SQLite for tests (not PostgreSQL)
+os.environ["DATABASE_URL"] = "sqlite:///./test.db"
+
+import pytest  # noqa: E402
+from database import Base, engine, SessionLocal, User, UserRole  # noqa: E402
+from auth import hash_password, create_access_token  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def setup_test_db():
+    """Create fresh database tables before each test, drop after."""
+    Base.metadata.create_all(bind=engine)
+    yield
+    Base.metadata.drop_all(bind=engine)
+
+
+@pytest.fixture
+def db_session():
+    """Provide a DB session for tests."""
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+@pytest.fixture
+def test_commander(db_session):
+    """Create a commander user and return (user, token)."""
+    user = User(
+        username="cmd_user",
+        hashed_password=hash_password("testpass123"),
+        role=UserRole.COMMANDER,
+    )
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+    token = create_access_token(
+        {"sub": user.username, "role": user.role.value})
+    return user, token
+
+
+@pytest.fixture
+def test_viewer(db_session):
+    """Create a viewer user and return (user, token)."""
+    user = User(
+        username="view_user",
+        hashed_password=hash_password("testpass123"),
+        role=UserRole.VIEWER,
+    )
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+    token = create_access_token(
+        {"sub": user.username, "role": user.role.value})
+    return user, token
 
 
 @pytest.fixture

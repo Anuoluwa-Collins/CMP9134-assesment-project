@@ -1,741 +1,201 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>GCS — Ground Control Station</title>
   <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-
-    body {
-      font-family: 'Segoe UI', system-ui, sans-serif;
-      background: #0f1923;
-      color: #e0e6ed;
-      min-height: 100vh;
-    }
-
-   
-    header {
-      background: #1a2736;
-      border-bottom: 1px solid #2a3a4e;
-      padding: 0.6rem 1.5rem;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    header h1 {
-      font-size: 1rem;
-      letter-spacing: 2px;
-      color: #4fc3f7;
-    }
-
-    .conn-status {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 0.8rem;
-    }
-
-    .conn-dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      background: #c62828;
-      transition: background 0.3s;
-    }
-
-    .conn-dot.ok {
-      background: #2e7d32;
-    }
-
-    .conn-dot.ws {
-      background: #f9a825;
-    }
-
-
-    .dashboard {
-      display: grid;
-      grid-template-columns: 1fr 320px;
-      grid-template-rows: auto 1fr;
-      gap: 1rem;
-      padding: 1rem;
-      max-width: 1400px;
-      margin: 0 auto;
-    }
-
-   
-    .stats-row {
-      grid-column: 1 / -1;
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 0.75rem;
-    }
-
-    .stat-card {
-      background: #1a2736;
-      border: 1px solid #2a3a4e;
-      border-radius: 8px;
-      padding: 0.8rem 1rem;
-      text-align: center;
-    }
-
-    .stat-card .label {
-      font-size: 0.65rem;
-      color: #7a8fa6;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-    }
-
-    .stat-card .value {
-      font-size: 1.5rem;
-      font-weight: 700;
-      margin-top: 4px;
-      color: #e0e6ed;
-    }
-
-    .stat-card.warn .value {
-      color: #f9a825;
-    }
-
-    .stat-card.danger .value {
-      color: #ef5350;
-    }
-
-    /* ── Grid map ───────────────────────────────────────── */
-    .map-panel {
-      background: #1a2736;
-      border: 1px solid #2a3a4e;
-      border-radius: 8px;
-      padding: 1rem;
-    }
-
-    .map-panel h2 {
-      font-size: 0.75rem;
-      color: #7a8fa6;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      margin-bottom: 0.75rem;
-    }
-
-    .grid-container {
-      display: grid;
-      grid-template-columns: repeat(21, 1fr);
-      gap: 1px;
-      aspect-ratio: 1;
-      max-width: 100%;
-    }
-
-    .cell {
-      aspect-ratio: 1;
-      background: #223344;
-      border-radius: 2px;
-      transition: background 0.2s;
-    }
-
-    .cell.robot {
-      background: #4fc3f7;
-      border-radius: 50%;
-      box-shadow: 0 0 6px #4fc3f7;
-    }
-
-    .cell.obstacle {
-      background: #ef5350;
-    }
-
-    .cell.target {
-      background: #66bb6a;
-      border-radius: 50%;
-    }
-
-    .cell:hover {
-      background: #2a4a5e;
-      cursor: pointer;
-    }
-
-    
-    .side-panel {
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
-    }
-
-    .panel-box {
-      background: #1a2736;
-      border: 1px solid #2a3a4e;
-      border-radius: 8px;
-      padding: 1rem;
-    }
-
-    .panel-box h3 {
-      font-size: 0.7rem;
-      color: #7a8fa6;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      margin-bottom: 0.75rem;
-    }
-
-
-    .controls-grid {
-      display: grid;
-      grid-template-areas:
-        ".  N  ."
-        "W  R  E"
-        ".  S  .";
-      grid-template-columns: repeat(3, 1fr);
-      gap: 6px;
-    }
-
-    .controls-grid button {
-      padding: 10px;
-      font-size: 0.9rem;
-      font-weight: 700;
-      border: 1px solid #3a5068;
-      background: #223344;
-      color: #e0e6ed;
-      border-radius: 6px;
-      cursor: pointer;
-      transition: all 0.15s;
-    }
-
-    .controls-grid button:hover {
-      background: #2a4a5e;
-      border-color: #4fc3f7;
-    }
-
-    .controls-grid button:active {
-      background: #4fc3f7;
-      color: #0f1923;
-    }
-
-    .controls-grid button:disabled {
-      opacity: 0.4;
-      cursor: not-allowed;
-    }
-
-    .btn-n {
-      grid-area: N;
-    }
-
-    .btn-s {
-      grid-area: S;
-    }
-
-    .btn-e {
-      grid-area: E;
-    }
-
-    .btn-w {
-      grid-area: W;
-    }
-
-    .btn-reset {
-      grid-area: R;
-      font-size: 0.7rem !important;
-      color: #ef5350 !important;
-    }
-
-  
-    .action-row {
-      display: flex;
-      gap: 6px;
-      margin-top: 8px;
-    }
-
-    .action-row button {
-      flex: 1;
-      padding: 8px;
-      font-size: 0.75rem;
-      font-weight: 600;
-      border: 1px solid #3a5068;
-      background: #223344;
-      color: #e0e6ed;
-      border-radius: 6px;
-      cursor: pointer;
-      transition: all 0.15s;
-    }
-
-    .action-row button:hover {
-      background: #2a4a5e;
-    }
-
-  
-    .sensor-row {
-      display: flex;
-      justify-content: space-between;
-      padding: 4px 0;
-      border-bottom: 1px solid #1f2f3f;
-      font-size: 0.8rem;
-    }
-
-    .sensor-row:last-child {
-      border-bottom: none;
-    }
-
-    .sensor-label {
-      color: #7a8fa6;
-    }
-
-    .sensor-value {
-      font-weight: 600;
-    }
-
-
-    .log-box {
-      background: #0f1923;
-      border: 1px solid #2a3a4e;
-      border-radius: 4px;
-      padding: 8px;
-      max-height: 160px;
-      overflow-y: auto;
-      font-family: 'Consolas', 'Courier New', monospace;
-      font-size: 0.7rem;
-      line-height: 1.5;
-      color: #7a8fa6;
-    }
-
-    .log-entry.error {
-      color: #ef5350;
-    }
-
-    .log-entry.info {
-      color: #4fc3f7;
-    }
-
-    .log-entry.success {
-      color: #66bb6a;
-    }
-
-   
-    .battery-bar-bg {
-      width: 100%;
-      height: 6px;
-      background: #223344;
-      border-radius: 3px;
-      margin-top: 6px;
-      overflow: hidden;
-    }
-
-    .battery-bar-fill {
-      height: 100%;
-      border-radius: 3px;
-      transition: width 0.5s, background 0.5s;
-      background: #2e7d32;
-    }
-
-    .battery-bar-fill.warn {
-      background: #f9a825;
-    }
-
-    .battery-bar-fill.danger {
-      background: #ef5350;
-    }
-
-   
-    @media (max-width: 900px) {
-      .dashboard {
-        grid-template-columns: 1fr;
-      }
-
-      .stats-row {
-        grid-template-columns: repeat(2, 1fr);
-      }
-    }
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Segoe UI',system-ui,sans-serif;background:#0f1923;color:#e0e6ed;min-height:100vh}
+    .auth-overlay{position:fixed;inset:0;z-index:1000;background:#0f1923;display:flex;align-items:center;justify-content:center}
+    .auth-overlay.hidden{display:none}
+    .auth-box{background:#1a2736;border:1px solid #2a3a4e;border-radius:12px;padding:2rem;width:360px;max-width:90vw}
+    .auth-box h2{text-align:center;color:#4fc3f7;margin-bottom:1.2rem;font-size:1.1rem;letter-spacing:1px}
+    .auth-box input,.auth-box select{width:100%;padding:10px 12px;margin-bottom:10px;background:#223344;border:1px solid #3a5068;border-radius:6px;color:#e0e6ed;font-size:.9rem;outline:none}
+    .auth-box input:focus{border-color:#4fc3f7}
+    .auth-box button{width:100%;padding:10px;font-size:.9rem;font-weight:700;border:none;border-radius:6px;cursor:pointer;background:#4fc3f7;color:#0f1923;margin-top:4px;transition:background .15s}
+    .auth-box button:hover{background:#81d4fa}
+    .auth-box .toggle{text-align:center;margin-top:12px;font-size:.8rem;color:#7a8fa6}
+    .auth-box .toggle a{color:#4fc3f7;cursor:pointer;text-decoration:underline}
+    .auth-error{background:#3e1c1c;color:#ef5350;padding:8px;border-radius:4px;font-size:.8rem;margin-bottom:10px;display:none;text-align:center}
+    header{background:#1a2736;border-bottom:1px solid #2a3a4e;padding:.6rem 1.5rem;display:flex;justify-content:space-between;align-items:center}
+    header h1{font-size:1rem;letter-spacing:2px;color:#4fc3f7}
+    .header-right{display:flex;align-items:center;gap:14px}
+    .conn-status{display:flex;align-items:center;gap:6px;font-size:.8rem}
+    .conn-dot{width:10px;height:10px;border-radius:50%;background:#c62828;transition:background .3s}
+    .conn-dot.ok{background:#2e7d32}.conn-dot.ws{background:#f9a825}
+    .user-badge{font-size:.75rem;padding:4px 10px;background:#223344;border:1px solid #3a5068;border-radius:12px}
+    .user-badge .role{color:#4fc3f7;font-weight:700;text-transform:uppercase}
+    .logout-btn{font-size:.75rem;padding:4px 10px;background:transparent;border:1px solid #ef5350;color:#ef5350;border-radius:6px;cursor:pointer;transition:all .15s}
+    .logout-btn:hover{background:#ef5350;color:#fff}
+    .dashboard{display:grid;grid-template-columns:1fr 320px;grid-template-rows:auto auto 1fr;gap:1rem;padding:1rem;max-width:1400px;margin:0 auto}
+    .stats-row{grid-column:1/-1;display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem}
+    .stat-card{background:#1a2736;border:1px solid #2a3a4e;border-radius:8px;padding:.8rem 1rem;text-align:center}
+    .stat-card .label{font-size:.65rem;color:#7a8fa6;text-transform:uppercase;letter-spacing:1px}
+    .stat-card .value{font-size:1.5rem;font-weight:700;margin-top:4px;color:#e0e6ed}
+    .stat-card.warn .value{color:#f9a825}.stat-card.danger .value{color:#ef5350}
+    .tab-bar{grid-column:1/-1;display:flex;gap:4px;background:#1a2736;border-radius:8px;padding:4px;border:1px solid #2a3a4e}
+    .tab-btn{flex:1;padding:8px;font-size:.8rem;font-weight:600;background:transparent;border:none;color:#7a8fa6;border-radius:6px;cursor:pointer;transition:all .15s}
+    .tab-btn.active{background:#223344;color:#4fc3f7}.tab-btn:hover:not(.active){color:#e0e6ed}
+    .tab-content{display:none;grid-column:1/-1}
+    .tab-content.active{display:grid;grid-template-columns:1fr 320px;gap:1rem}
+    .tab-content.active.full-width{grid-template-columns:1fr}
+    .map-panel{background:#1a2736;border:1px solid #2a3a4e;border-radius:8px;padding:1rem}
+    .map-panel h2{font-size:.75rem;color:#7a8fa6;text-transform:uppercase;letter-spacing:1px;margin-bottom:.75rem}
+    .grid-container{display:grid;grid-template-columns:repeat(21,1fr);gap:1px;aspect-ratio:1;max-width:100%}
+    .cell{aspect-ratio:1;background:#223344;border-radius:2px;transition:background .2s}
+    .cell.robot{background:#4fc3f7;border-radius:50%;box-shadow:0 0 6px #4fc3f7}
+    .cell.obstacle{background:#ef5350}.cell.target{background:#66bb6a;border-radius:50%}
+    .cell:hover{background:#2a4a5e;cursor:pointer}
+    .side-panel{display:flex;flex-direction:column;gap:1rem}
+    .panel-box{background:#1a2736;border:1px solid #2a3a4e;border-radius:8px;padding:1rem}
+    .panel-box h3{font-size:.7rem;color:#7a8fa6;text-transform:uppercase;letter-spacing:1px;margin-bottom:.75rem}
+    .controls-grid{display:grid;grid-template-areas:".  N  .""W  R  E"".  S  .";grid-template-columns:repeat(3,1fr);gap:6px}
+    .controls-grid button{padding:10px;font-size:.9rem;font-weight:700;border:1px solid #3a5068;background:#223344;color:#e0e6ed;border-radius:6px;cursor:pointer;transition:all .15s}
+    .controls-grid button:hover{background:#2a4a5e;border-color:#4fc3f7}
+    .controls-grid button:active{background:#4fc3f7;color:#0f1923}
+    .controls-grid button:disabled{opacity:.4;cursor:not-allowed}
+    .btn-n{grid-area:N}.btn-s{grid-area:S}.btn-e{grid-area:E}.btn-w{grid-area:W}
+    .btn-reset{grid-area:R;font-size:.7rem!important;color:#ef5350!important}
+    .action-row{display:flex;gap:6px;margin-top:8px}
+    .action-row button{flex:1;padding:8px;font-size:.75rem;font-weight:600;border:1px solid #3a5068;background:#223344;color:#e0e6ed;border-radius:6px;cursor:pointer;transition:all .15s}
+    .action-row button:hover{background:#2a4a5e}
+    .sensor-row{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #1f2f3f;font-size:.8rem}
+    .sensor-row:last-child{border-bottom:none}.sensor-label{color:#7a8fa6}.sensor-value{font-weight:600}
+    .log-box{background:#0f1923;border:1px solid #2a3a4e;border-radius:4px;padding:8px;max-height:160px;overflow-y:auto;font-family:'Consolas','Courier New',monospace;font-size:.7rem;line-height:1.5;color:#7a8fa6}
+    .log-entry.error{color:#ef5350}.log-entry.info{color:#4fc3f7}.log-entry.success{color:#66bb6a}
+    .battery-bar-bg{width:100%;height:6px;background:#223344;border-radius:3px;margin-top:6px;overflow:hidden}
+    .battery-bar-fill{height:100%;border-radius:3px;transition:width .5s,background .5s;background:#2e7d32}
+    .battery-bar-fill.warn{background:#f9a825}.battery-bar-fill.danger{background:#ef5350}
+    .audit-table{width:100%;border-collapse:collapse;font-size:.8rem}
+    .audit-table th{text-align:left;padding:8px 10px;background:#1a2736;color:#4fc3f7;font-size:.7rem;text-transform:uppercase;letter-spacing:1px;border-bottom:2px solid #2a3a4e}
+    .audit-table td{padding:6px 10px;border-bottom:1px solid #1f2f3f}
+    .audit-table tr:hover td{background:#1a2736}
+    .viewer-hidden{display:none!important}
+    @media(max-width:900px){.dashboard{grid-template-columns:1fr}.stats-row{grid-template-columns:repeat(2,1fr)}.tab-content.active{grid-template-columns:1fr}}
   </style>
 </head>
-
 <body>
+  <div class="auth-overlay" id="auth-overlay">
+    <div class="auth-box">
+      <h2 id="auth-title">&#9881; GCS — LOGIN</h2>
+      <div class="auth-error" id="auth-error"></div>
+      <div id="login-form">
+        <input type="text" id="login-user" placeholder="Username" autocomplete="username">
+        <input type="password" id="login-pass" placeholder="Password" autocomplete="current-password">
+        <button onclick="doLogin()">Login</button>
+        <div class="toggle">No account? <a onclick="showRegister()">Register</a></div>
+      </div>
+      <div id="register-form" style="display:none">
+        <input type="text" id="reg-user" placeholder="Username (min 3 chars)">
+        <input type="password" id="reg-pass" placeholder="Password (min 6 chars)">
+        <select id="reg-role"><option value="viewer">Viewer (read-only)</option><option value="commander">Commander (full control)</option></select>
+        <button onclick="doRegister()">Create Account</button>
+        <div class="toggle">Have an account? <a onclick="showLogin()">Login</a></div>
+      </div>
+    </div>
+  </div>
 
   <header>
-    <h1>⚙ GROUND CONTROL STATION</h1>
-    <div class="conn-status">
-      <div id="conn-dot" class="conn-dot"></div>
-      <span id="conn-label">Connecting…</span>
+    <h1>&#9881; GROUND CONTROL STATION</h1>
+    <div class="header-right">
+      <div class="conn-status"><div id="conn-dot" class="conn-dot"></div><span id="conn-label">Connecting…</span></div>
+      <div class="user-badge"><span id="badge-user">—</span> · <span class="role" id="badge-role">—</span></div>
+      <button class="logout-btn" onclick="doLogout()">Logout</button>
     </div>
   </header>
 
   <div class="dashboard">
-
-    
     <div class="stats-row">
-      <div class="stat-card" id="card-pos">
-        <div class="label">Position</div>
-        <div class="value" id="pos">—</div>
-      </div>
-      <div class="stat-card" id="card-battery">
-        <div class="label">Battery</div>
-        <div class="value" id="battery">—</div>
-        <div class="battery-bar-bg">
-          <div class="battery-bar-fill" id="battery-bar" style="width:0%"></div>
-        </div>
-      </div>
-      <div class="stat-card">
-        <div class="label">Status</div>
-        <div class="value" style="font-size:1rem" id="robot-status">—</div>
-      </div>
-      <div class="stat-card">
-        <div class="label">Robot ID</div>
-        <div class="value" style="font-size:0.85rem" id="robot-id">—</div>
-      </div>
+      <div class="stat-card" id="card-pos"><div class="label">Position</div><div class="value" id="pos">—</div></div>
+      <div class="stat-card" id="card-battery"><div class="label">Battery</div><div class="value" id="battery">—</div><div class="battery-bar-bg"><div class="battery-bar-fill" id="battery-bar" style="width:0%"></div></div></div>
+      <div class="stat-card"><div class="label">Status</div><div class="value" style="font-size:1rem" id="robot-status">—</div></div>
+      <div class="stat-card"><div class="label">Robot ID</div><div class="value" style="font-size:.85rem" id="robot-id">—</div></div>
     </div>
 
-    
-    <div class="map-panel">
-      <h2>Map — 21×21 Grid</h2>
-      <div class="grid-container" id="grid"></div>
+    <div class="tab-bar">
+      <button class="tab-btn active" onclick="switchTab('dashboard',this)">Dashboard</button>
+      <button class="tab-btn" onclick="switchTab('audit',this)">Audit Log</button>
     </div>
 
-   
-    <div class="side-panel">
-
-      
-      <div class="panel-box">
-        <h3>Movement Controls</h3>
-        <div class="controls-grid">
-          <button class="btn-n" onclick="sendMove(0,-1)" title="Move North">▲ N</button>
-          <button class="btn-w" onclick="sendMove(-1,0)" title="Move West">◄ W</button>
-          <button class="btn-reset" onclick="resetRobot()" title="Reset">RST</button>
-          <button class="btn-e" onclick="sendMove(1,0)" title="Move East">E ►</button>
-          <button class="btn-s" onclick="sendMove(0,1)" title="Move South">▼ S</button>
-        </div>
-        <div class="action-row">
-          <button onclick="fetchMap()">Refresh Map</button>
-          <button onclick="fetchSensors()">Read Sensors</button>
-        </div>
-      </div>
-
-      
-      <div class="panel-box" id="sensor-panel">
-        <h3>Sensor Readings</h3>
-        <div id="sensor-data">
-          <div class="sensor-row">
-            <span class="sensor-label">No data yet</span>
+    <div class="tab-content active" id="tab-dashboard">
+      <div class="map-panel"><h2>Map — 21×21 Grid</h2><div class="grid-container" id="grid"></div></div>
+      <div class="side-panel">
+        <div class="panel-box commander-only">
+          <h3>Movement Controls</h3>
+          <div class="controls-grid">
+            <button class="btn-n" onclick="sendMove(0,-1)" title="Move North">&#9650; N</button>
+            <button class="btn-w" onclick="sendMove(-1,0)" title="Move West">&#9668; W</button>
+            <button class="btn-reset" onclick="resetRobot()" title="Reset">RST</button>
+            <button class="btn-e" onclick="sendMove(1,0)" title="Move East">E &#9658;</button>
+            <button class="btn-s" onclick="sendMove(0,1)" title="Move South">&#9660; S</button>
           </div>
+          <div class="action-row"><button onclick="fetchMap()">Refresh Map</button><button onclick="fetchSensors()">Read Sensors</button></div>
         </div>
+        <div class="panel-box" id="sensor-panel"><h3>Sensor Readings</h3><div id="sensor-data"><div class="sensor-row"><span class="sensor-label">No data yet</span></div></div></div>
+        <div class="panel-box"><h3>Activity Log</h3><div class="log-box" id="log-box"></div></div>
       </div>
+    </div>
 
-      
-      <div class="panel-box">
-        <h3>Activity Log</h3>
-        <div class="log-box" id="log-box"></div>
+    <div class="tab-content full-width" id="tab-audit">
+      <div class="panel-box" style="grid-column:1/-1">
+        <h3>Mission Audit Trail</h3>
+        <div style="margin-bottom:10px"><button onclick="fetchAuditLogs()" style="padding:6px 14px;font-size:.8rem;background:#223344;border:1px solid #3a5068;color:#e0e6ed;border-radius:6px;cursor:pointer">Refresh Logs</button></div>
+        <div style="overflow-x:auto"><table class="audit-table"><thead><tr><th>ID</th><th>Timestamp</th><th>User</th><th>Command</th><th>Payload</th><th>Robot Status</th></tr></thead><tbody id="audit-tbody"><tr><td colspan="6" style="color:#7a8fa6">Click "Refresh Logs" to load</td></tr></tbody></table></div>
       </div>
-
     </div>
   </div>
 
   <script>
-    const $ = id => document.getElementById(id);
-
-   
-    let currentPos = { x: 10, y: 10 };
-    let targetPos = null;
-    let isMoving = false;
-
-  
-    function initGrid() {
-      const grid = $('grid');
-      grid.innerHTML = '';
-      for (let row = 0; row < 21; row++) {
-        for (let col = 0; col < 21; col++) {
-          const cell = document.createElement('div');
-          cell.className = 'cell';
-          cell.dataset.x = col;
-          cell.dataset.y = row;
-          cell.addEventListener('click', () => clickCell(col, row));
-          cell.title = `(${col}, ${row})`;
-          grid.appendChild(cell);
-        }
-      }
+    const $=id=>document.getElementById(id);
+    let authToken=sessionStorage.getItem('gcs_token')||null,currentRole=sessionStorage.getItem('gcs_role')||null,currentUsername=sessionStorage.getItem('gcs_user')||null;
+    function authHeaders(){return authToken?{'Authorization':'Bearer '+authToken}:{}}
+    function authFetch(url,opts={}){opts.headers={...authHeaders(),...(opts.headers||{})};return fetch(url,opts)}
+    function showAuthError(m){const e=$('auth-error');e.textContent=m;e.style.display='block';e.style.background='#3e1c1c';e.style.color='#ef5350'}
+    function showLogin(){$('login-form').style.display='block';$('register-form').style.display='none';$('auth-title').textContent='\u2699 GCS \u2014 LOGIN';$('auth-error').style.display='none'}
+    function showRegister(){$('login-form').style.display='none';$('register-form').style.display='block';$('auth-title').textContent='\u2699 GCS \u2014 REGISTER';$('auth-error').style.display='none'}
+    async function doLogin(){
+      const u=$('login-user').value.trim(),p=$('login-pass').value;
+      if(!u||!p)return showAuthError('Enter username and password');
+      try{const r=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'username='+encodeURIComponent(u)+'&password='+encodeURIComponent(p)});const d=await r.json();if(!r.ok)return showAuthError(d.detail||'Login failed');authToken=d.access_token;currentRole=d.role;currentUsername=d.username;sessionStorage.setItem('gcs_token',authToken);sessionStorage.setItem('gcs_role',currentRole);sessionStorage.setItem('gcs_user',currentUsername);onAuthSuccess()}catch(e){showAuthError('Connection error')}
     }
-
-    function updateGrid(robotPos, obstacles = []) {
-      const cells = document.querySelectorAll('.cell');
-      cells.forEach(cell => {
-        cell.classList.remove('robot', 'obstacle', 'target');
-      });
-
-      
-      obstacles.forEach(obs => {
-        const idx = obs.y * 21 + obs.x;
-        if (cells[idx]) cells[idx].classList.add('obstacle');
-      });
-
-      
-      if (targetPos) {
-        const idx = targetPos.y * 21 + targetPos.x;
-        if (cells[idx]) cells[idx].classList.add('target');
-      }
-
-      
-      if (robotPos) {
-        const idx = robotPos.y * 21 + robotPos.x;
-        if (cells[idx]) cells[idx].classList.add('robot');
-      }
+    async function doRegister(){
+      const u=$('reg-user').value.trim(),p=$('reg-pass').value,role=$('reg-role').value;
+      if(!u||!p)return showAuthError('Fill in all fields');
+      try{const r=await fetch('/api/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p,role:role})});const d=await r.json();if(!r.ok)return showAuthError(d.detail||'Registration failed');showLogin();$('login-user').value=u;const e=$('auth-error');e.textContent='Account created \u2014 please login';e.style.display='block';e.style.background='#1c3e1c';e.style.color='#66bb6a'}catch(e){showAuthError('Connection error')}
     }
+    function doLogout(){authToken=null;currentRole=null;currentUsername=null;sessionStorage.clear();$('auth-overlay').classList.remove('hidden');$('login-user').value='';$('login-pass').value='';$('auth-error').style.display='none'}
+    function onAuthSuccess(){$('auth-overlay').classList.add('hidden');$('badge-user').textContent=currentUsername;$('badge-role').textContent=currentRole;if(currentRole==='viewer'){document.querySelectorAll('.commander-only').forEach(el=>el.classList.add('viewer-hidden'))}else{document.querySelectorAll('.commander-only').forEach(el=>el.classList.remove('viewer-hidden'))}initDashboard()}
 
-    function clickCell(x, y) {
-      targetPos = { x, y };
-      updateGrid(currentPos);
-      addLog(`Target set: (${x}, ${y})`, 'info');
-    }
+    function switchTab(name,btn){document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));btn.classList.add('active');$('tab-'+name).classList.add('active');if(name==='audit')fetchAuditLogs()}
 
-   
-    function addLog(msg, type = '') {
-      const box = $('log-box');
-      const time = new Date().toLocaleTimeString();
-      const entry = document.createElement('div');
-      entry.className = `log-entry ${type}`;
-      entry.textContent = `[${time}] ${msg}`;
-      box.prepend(entry);
-      
-      while (box.children.length > 50) box.removeChild(box.lastChild);
-    }
+    let currentPos={x:10,y:10},targetPos=null,isMoving=false;
+    function initGrid(){const g=$('grid');g.innerHTML='';for(let r=0;r<21;r++)for(let c=0;c<21;c++){const cell=document.createElement('div');cell.className='cell';cell.dataset.x=c;cell.dataset.y=r;cell.addEventListener('click',()=>clickCell(c,r));cell.title='('+c+', '+r+')';g.appendChild(cell)}}
+    function updateGrid(rp,obs=[]){const cells=document.querySelectorAll('.cell');cells.forEach(c=>c.classList.remove('robot','obstacle','target'));obs.forEach(o=>{const i=o.y*21+o.x;if(cells[i])cells[i].classList.add('obstacle')});if(targetPos){const i=targetPos.y*21+targetPos.x;if(cells[i])cells[i].classList.add('target')}if(rp){const i=rp.y*21+rp.x;if(cells[i])cells[i].classList.add('robot')}}
+    function clickCell(x,y){if(currentRole!=='commander')return;targetPos={x,y};updateGrid(currentPos);addLog('Target set: ('+x+', '+y+')','info')}
+    function addLog(msg,type=''){const box=$('log-box'),time=new Date().toLocaleTimeString(),entry=document.createElement('div');entry.className='log-entry '+type;entry.textContent='['+time+'] '+msg;box.prepend(entry);while(box.children.length>50)box.removeChild(box.lastChild)}
 
-    
-    async function fetchStatus() {
-      try {
-        const r = await fetch('/api/status');
-        if (!r.ok) throw new Error(r.statusText);
-        const d = await r.json();
+    async function fetchStatus(){try{const r=await authFetch('/api/status');if(r.status===401)return doLogout();if(!r.ok)throw new Error(r.statusText);const d=await r.json();if(d.error)throw new Error(d.error);$('conn-dot').className='conn-dot ok';$('conn-label').textContent='Connected';$('robot-id').textContent=d.id||'\u2014';$('robot-status').textContent=d.status||'\u2014';if(d.position){currentPos=d.position;$('pos').textContent='('+d.position.x+', '+d.position.y+')'}if(d.battery!==undefined){const b=d.battery;$('battery').textContent=b.toFixed(1)+'%';$('battery-bar').style.width=Math.max(0,Math.min(100,b))+'%';$('card-battery').className='stat-card'+(b<20?' danger':b<40?' warn':'');$('battery-bar').className='battery-bar-fill'+(b<20?' danger':b<40?' warn':'')}}catch(e){$('conn-dot').className='conn-dot';$('conn-label').textContent='Unreachable'}}
 
-        if (d.error) throw new Error(d.error);
+    async function sendMove(dx,dy){if(isMoving||currentRole!=='commander')return;const nx=currentPos.x+dx,ny=currentPos.y+dy;if(nx<0||nx>20||ny<0||ny>20){addLog('Blocked: ('+nx+','+ny+') out of bounds','error');return}isMoving=true;setControlsDisabled(true);addLog('Moving to ('+nx+','+ny+')...','info');try{const r=await authFetch('/api/move',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({x:nx,y:ny})});if(r.status===401)return doLogout();if(r.status===403){addLog('RBAC: Commander role required','error');return}const d=await r.json();if(d.error)addLog('Move failed: '+d.error,'error');else{addLog('Moved to ('+nx+','+ny+')','success');await fetchStatus();await fetchMap()}}catch(e){addLog('Move error: '+e.message,'error')}finally{isMoving=false;setControlsDisabled(false)}}
 
-        $('conn-dot').className = 'conn-dot ok';
-        $('conn-label').textContent = 'Connected';
+    async function resetRobot(){if(currentRole!=='commander')return;if(!confirm('Reset robot?'))return;addLog('Resetting...','info');try{const r=await authFetch('/api/reset',{method:'POST'});if(r.status===401)return doLogout();const d=await r.json();if(d.error)addLog('Reset failed: '+d.error,'error');else{addLog('Robot reset','success');targetPos=null;await fetchStatus();await fetchMap()}}catch(e){addLog('Reset error: '+e.message,'error')}}
 
-        $('robot-id').textContent = d.id ?? '—';
-        $('robot-status').textContent = d.status ?? '—';
+    async function fetchMap(){try{const r=await authFetch('/api/map');if(r.status===401)return doLogout();const d=await r.json();if(d.error)throw new Error(d.error);updateGrid(d.robot||d.position||currentPos,d.obstacles||[])}catch(e){updateGrid(currentPos)}}
 
-        if (d.position) {
-          currentPos = d.position;
-          $('pos').textContent = `(${d.position.x}, ${d.position.y})`;
-        }
+    async function fetchSensors(){try{const r=await authFetch('/api/sensors');if(r.status===401)return doLogout();const d=await r.json();if(d.error)throw new Error(d.error);const c=$('sensor-data');c.innerHTML='';function show(obj,pre=''){for(const[k,v]of Object.entries(obj)){if(typeof v==='object'&&v!==null&&!Array.isArray(v)){show(v,pre+k+'.')}else{const row=document.createElement('div');row.className='sensor-row';row.innerHTML='<span class="sensor-label">'+pre+k+'</span><span class="sensor-value">'+(typeof v==='number'?v.toFixed(2):String(v))+'</span>';c.appendChild(row)}}}show(d);addLog('Sensors read','success')}catch(e){addLog('Sensor error: '+e.message,'error')}}
 
-        if (d.battery !== undefined) {
-          const batt = d.battery;
-          $('battery').textContent = `${batt.toFixed(1)}%`;
-          $('battery-bar').style.width = `${Math.max(0, Math.min(100, batt))}%`;
+    async function fetchAuditLogs(){try{const r=await authFetch('/api/logs?limit=100');if(r.status===401)return doLogout();const logs=await r.json();const tb=$('audit-tbody');tb.innerHTML='';if(!logs.length){tb.innerHTML='<tr><td colspan="6" style="color:#7a8fa6">No logs yet</td></tr>';return}logs.forEach(l=>{const tr=document.createElement('tr');tr.innerHTML='<td>'+l.id+'</td><td style="font-size:.75rem">'+new Date(l.timestamp).toLocaleString()+'</td><td>'+l.user+'</td><td style="color:#4fc3f7">'+l.command_type+'</td><td style="font-size:.7rem;font-family:monospace;max-width:200px;overflow:hidden;text-overflow:ellipsis">'+l.payload+'</td><td>'+l.robot_status+'</td>';tb.appendChild(tr)})}catch(e){addLog('Audit log error: '+e.message,'error')}}
 
-          const card = $('card-battery');
-          const bar = $('battery-bar');
-          card.className = 'stat-card' + (batt < 20 ? ' danger' : batt < 40 ? ' warn' : '');
-          bar.className = 'battery-bar-fill' + (batt < 20 ? ' danger' : batt < 40 ? ' warn' : '');
-        }
-      } catch (e) {
-        $('conn-dot').className = 'conn-dot';
-        $('conn-label').textContent = 'Unreachable';
-      }
-    }
+    function setControlsDisabled(d){document.querySelectorAll('.controls-grid button').forEach(b=>{b.disabled=d})}
 
-    async function sendMove(dx, dy) {
-      if (isMoving) return;
-      const newX = currentPos.x + dx;
-      const newY = currentPos.y + dy;
+    let ws=null,wsRetryCount=0;
+    function connectWebSocket(){const protocol=location.protocol==='https:'?'wss:':'ws:';const wsUrl=protocol+'//'+location.host+'/ws/telemetry';try{ws=new WebSocket(wsUrl);ws.onopen=()=>{wsRetryCount=0;$('conn-dot').className='conn-dot ok';$('conn-label').textContent='Live (WebSocket)';addLog('WebSocket connected','success')};ws.onmessage=(ev)=>{try{const d=JSON.parse(ev.data);if(d.error){$('conn-dot').className='conn-dot';$('conn-label').textContent='Robot unreachable';return}$('conn-dot').className='conn-dot ok';$('conn-label').textContent='Live';if(d.position){currentPos=d.position;$('pos').textContent='('+d.position.x+', '+d.position.y+')';updateGrid(currentPos)}if(d.battery!==undefined){const b=d.battery;$('battery').textContent=b.toFixed(1)+'%';$('battery-bar').style.width=Math.max(0,Math.min(100,b))+'%';$('card-battery').className='stat-card'+(b<20?' danger':b<40?' warn':'');$('battery-bar').className='battery-bar-fill'+(b<20?' danger':b<40?' warn':'')}if(d.status)$('robot-status').textContent=d.status;if(d.id)$('robot-id').textContent=d.id}catch(e){}};ws.onclose=()=>{$('conn-dot').className='conn-dot ws';$('conn-label').textContent='Reconnecting...';const delay=Math.min(1000*Math.pow(2,wsRetryCount),30000);wsRetryCount++;setTimeout(connectWebSocket,delay)};ws.onerror=()=>{ws.close()}}catch(e){addLog('WebSocket unavailable','info')}}
 
-      if (newX < 0 || newX > 20 || newY < 0 || newY > 20) {
-        addLog(`Blocked: (${newX}, ${newY}) is out of bounds`, 'error');
-        return;
-      }
+    document.addEventListener('keydown',(e)=>{if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA')return;if(currentRole!=='commander')return;switch(e.key){case'ArrowUp':case'w':case'W':e.preventDefault();sendMove(0,-1);break;case'ArrowDown':case's':case'S':e.preventDefault();sendMove(0,1);break;case'ArrowLeft':case'a':case'A':e.preventDefault();sendMove(-1,0);break;case'ArrowRight':case'd':case'D':e.preventDefault();sendMove(1,0);break;case'r':case'R':resetRobot();break}});
 
-      isMoving = true;
-      setControlsDisabled(true);
-      addLog(`Moving to (${newX}, ${newY})…`, 'info');
-
-      try {
-        const r = await fetch('/api/move', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ x: newX, y: newY })
-        });
-        const d = await r.json();
-
-        if (d.error) {
-          addLog(`Move failed: ${d.error}`, 'error');
-        } else {
-          addLog(`Moved to (${newX}, ${newY})`, 'success');
-          await fetchStatus();
-          await fetchMap();
-        }
-      } catch (e) {
-        addLog(`Move error: ${e.message}`, 'error');
-      } finally {
-        isMoving = false;
-        setControlsDisabled(false);
-      }
-    }
-
-    async function resetRobot() {
-      if (!confirm('Reset robot to starting position?')) return;
-      addLog('Resetting robot…', 'info');
-      try {
-        const r = await fetch('/api/reset', { method: 'POST' });
-        const d = await r.json();
-        if (d.error) {
-          addLog(`Reset failed: ${d.error}`, 'error');
-        } else {
-          addLog('Robot reset successfully', 'success');
-          targetPos = null;
-          await fetchStatus();
-          await fetchMap();
-        }
-      } catch (e) {
-        addLog(`Reset error: ${e.message}`, 'error');
-      }
-    }
-
-    async function fetchMap() {
-      try {
-        const r = await fetch('/api/map');
-        const d = await r.json();
-        if (d.error) throw new Error(d.error);
-
-        const obstacles = d.obstacles || [];
-        const robotPos = d.robot || d.position || currentPos;
-        updateGrid(robotPos, obstacles);
-      } catch (e) {
-      
-        updateGrid(currentPos);
-      }
-    }
-
-    async function fetchSensors() {
-      try {
-        const r = await fetch('/api/sensors');
-        const d = await r.json();
-        if (d.error) throw new Error(d.error);
-
-        const container = $('sensor-data');
-        container.innerHTML = '';
-
-     
-        function displayData(obj, prefix = '') {
-          for (const [key, val] of Object.entries(obj)) {
-            if (typeof val === 'object' && val !== null && !Array.isArray(val)) {
-              displayData(val, `${prefix}${key}.`);
-            } else {
-              const row = document.createElement('div');
-              row.className = 'sensor-row';
-              const label = prefix + key;
-              const displayVal = typeof val === 'number' ? val.toFixed(2) : String(val);
-              row.innerHTML = `<span class="sensor-label">${label}</span><span class="sensor-value">${displayVal}</span>`;
-              container.appendChild(row);
-            }
-          }
-        }
-        displayData(d);
-        addLog('Sensors read successfully', 'success');
-      } catch (e) {
-        addLog(`Sensor error: ${e.message}`, 'error');
-      }
-    }
-
-    function setControlsDisabled(disabled) {
-      document.querySelectorAll('.controls-grid button').forEach(btn => {
-        btn.disabled = disabled;
-      });
-    }
-
-    
-    let ws = null;
-    let wsRetryCount = 0;
-
-    function connectWebSocket() {
-      const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${protocol}//${location.host}/ws/telemetry`;
-
-      try {
-        ws = new WebSocket(wsUrl);
-
-        ws.onopen = () => {
-          wsRetryCount = 0;
-          $('conn-dot').className = 'conn-dot ok';
-          $('conn-label').textContent = 'Live (WebSocket)';
-          addLog('WebSocket connected — live telemetry active', 'success');
-        };
-
-        ws.onmessage = (event) => {
-          try {
-            const d = JSON.parse(event.data);
-            if (d.error) {
-              $('conn-dot').className = 'conn-dot';
-              $('conn-label').textContent = 'Robot unreachable';
-              return;
-            }
-
-            $('conn-dot').className = 'conn-dot ok';
-            $('conn-label').textContent = 'Live';
-
-            if (d.position) {
-              currentPos = d.position;
-              $('pos').textContent = `(${d.position.x}, ${d.position.y})`;
-              updateGrid(currentPos);
-            }
-            if (d.battery !== undefined) {
-              const batt = d.battery;
-              $('battery').textContent = `${batt.toFixed(1)}%`;
-              $('battery-bar').style.width = `${Math.max(0, Math.min(100, batt))}%`;
-              const card = $('card-battery');
-              const bar = $('battery-bar');
-              card.className = 'stat-card' + (batt < 20 ? ' danger' : batt < 40 ? ' warn' : '');
-              bar.className = 'battery-bar-fill' + (batt < 20 ? ' danger' : batt < 40 ? ' warn' : '');
-            }
-            if (d.status) $('robot-status').textContent = d.status;
-            if (d.id) $('robot-id').textContent = d.id;
-          } catch (e) { /* ignore parse errors */ }
-        };
-
-        ws.onclose = () => {
-          $('conn-dot').className = 'conn-dot ws';
-          $('conn-label').textContent = 'Reconnecting…';
-         
-          const delay = Math.min(1000 * Math.pow(2, wsRetryCount), 30000);
-          wsRetryCount++;
-          setTimeout(connectWebSocket, delay);
-        };
-
-        ws.onerror = () => { ws.close(); };
-      } catch (e) {
-        
-        addLog('WebSocket unavailable — using polling', 'info');
-      }
-    }
-
-    
-    document.addEventListener('keydown', (e) => {
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-      switch (e.key) {
-        case 'ArrowUp': case 'w': case 'W': e.preventDefault(); sendMove(0, -1); break;
-        case 'ArrowDown': case 's': case 'S': e.preventDefault(); sendMove(0, 1); break;
-        case 'ArrowLeft': case 'a': case 'A': e.preventDefault(); sendMove(-1, 0); break;
-        case 'ArrowRight': case 'd': case 'D': e.preventDefault(); sendMove(1, 0); break;
-        case 'r': case 'R': resetRobot(); break;
-      }
-    });
-
-    
-    initGrid();
-    fetchStatus();
-    fetchMap();
-    connectWebSocket();
-
-    
-    setInterval(() => {
-      if (!ws || ws.readyState !== WebSocket.OPEN) {
-        fetchStatus();
-      }
-    }, 3000);
-
-
-    setInterval(fetchMap, 5000);
-
-    addLog('Dashboard initialised', 'info');
+    function initDashboard(){initGrid();fetchStatus();fetchMap();connectWebSocket();setInterval(()=>{if(!ws||ws.readyState!==WebSocket.OPEN)fetchStatus()},3000);setInterval(fetchMap,5000);addLog('Dashboard initialised','info')}
+    if(authToken){onAuthSuccess()}
   </script>
-
 </body>
-
 </html>

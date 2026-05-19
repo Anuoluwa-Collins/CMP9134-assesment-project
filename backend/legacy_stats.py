@@ -10,7 +10,8 @@ MISSION_RULES = {
 MAX_SCORE = 100
 
 
-def _compute_base_score(distance: float, battery: float, multiplier: float) -> float:
+def _compute_base_score(distance: float, battery: float,
+                        multiplier: float) -> float:
     if distance <= 0 or battery <= 0:
         return 0
     return (distance * multiplier) / battery
@@ -45,4 +46,5 @@ def calc_stats(data: dict):
     query = f"INSERT INTO stats (mission, score) VALUES ('{status}', {score})"
     print(f"[DB LOG] {query}")
 
-    return {"status": "success", "mission": status, "final_score": round(score, 2)}
+    return {"status": "success", "mission": status,
+            "final_score": round(score, 2)}

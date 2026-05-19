@@ -45,7 +45,10 @@ async def _send_request(
 
 
 class RobotClient:
-    """Async HTTP client for the Virtual Robot API with built-in retry logic."""
+    """Async HTTP client for the Virtual Robot API.
+
+    Includes built-in retry logic.
+    """
 
     def __init__(self, base_url: str = ROBOT_API_URL) -> None:
         self._base = base_url.rstrip("/")
@@ -118,7 +121,8 @@ class RobotClient:
         return await self._request_with_retry("GET", "/api/status")
 
     async def move(self, x: int, y: int) -> dict[str, Any]:
-        """Send a move command to the robot.
+        """Send a move command.
+
 
         Args:
             x: Target x coordinate (0-20 on the 21x21 grid).
@@ -128,9 +132,12 @@ class RobotClient:
             JSON response from the robot API confirming the move.
 
         Raises:
-            RobotConnectionError: If the robot API is unreachable after retries.
+            RobotConnectionError: If the robot API is
+                unreachable after retries.
         """
-        return await self._request_with_retry("POST", "/api/move", {"x": x, "y": y})
+        return await self._request_with_retry(
+            "POST", "/api/move", {"x": x, "y": y}
+        )
 
     async def reset(self) -> dict[str, Any]:
         """Reset the robot simulation to its initial state.

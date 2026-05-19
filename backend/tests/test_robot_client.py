@@ -28,7 +28,10 @@ async def test_get_status_success(client, mock_robot_status):
     mock_http_client.__aenter__ = AsyncMock(return_value=mock_http_client)
     mock_http_client.__aexit__ = AsyncMock(return_value=False)
 
-    with patch("robot_client.httpx.AsyncClient", return_value=mock_http_client):
+    with patch(
+        "robot_client.httpx.AsyncClient",
+        return_value=mock_http_client
+    ):
         result = await client.get_status()
 
     assert result["id"] == "robot-001"
@@ -44,7 +47,10 @@ async def test_get_status_connection_error(client):
     mock_http_client.__aenter__ = AsyncMock(return_value=mock_http_client)
     mock_http_client.__aexit__ = AsyncMock(return_value=False)
 
-    with patch("robot_client.httpx.AsyncClient", return_value=mock_http_client):
+    with patch(
+        "robot_client.httpx.AsyncClient",
+        return_value=mock_http_client
+    ):
         with patch("robot_client.MAX_RETRIES", 1):
             with pytest.raises(RobotConnectionError):
                 await client.get_status()
@@ -66,7 +72,10 @@ async def test_move_success(client):
     mock_http_client.__aenter__ = AsyncMock(return_value=mock_http_client)
     mock_http_client.__aexit__ = AsyncMock(return_value=False)
 
-    with patch("robot_client.httpx.AsyncClient", return_value=mock_http_client):
+    with patch(
+        "robot_client.httpx.AsyncClient",
+        return_value=mock_http_client
+    ):
         result = await client.move(5, 3)
 
     assert result["status"] == "ok"
@@ -92,7 +101,10 @@ async def test_reset_success(client):
     mock_http_client.__aenter__ = AsyncMock(return_value=mock_http_client)
     mock_http_client.__aexit__ = AsyncMock(return_value=False)
 
-    with patch("robot_client.httpx.AsyncClient", return_value=mock_http_client):
+    with patch(
+        "robot_client.httpx.AsyncClient",
+        return_value=mock_http_client
+    ):
         result = await client.reset()
 
     assert result["status"] == "ok"
@@ -116,7 +128,10 @@ async def test_retry_on_503(client):
     mock_http_client.__aenter__ = AsyncMock(return_value=mock_http_client)
     mock_http_client.__aexit__ = AsyncMock(return_value=False)
 
-    with patch("robot_client.httpx.AsyncClient", return_value=mock_http_client):
+    with patch(
+        "robot_client.httpx.AsyncClient",
+        return_value=mock_http_client
+    ):
         with patch("robot_client.RETRY_BACKOFF", 0.01):
             result = await client.get_status()
 
@@ -135,10 +150,16 @@ async def test_retry_exhausted_raises_error(client):
     mock_http_client.__aenter__ = AsyncMock(return_value=mock_http_client)
     mock_http_client.__aexit__ = AsyncMock(return_value=False)
 
-    with patch("robot_client.httpx.AsyncClient", return_value=mock_http_client):
+    with patch(
+        "robot_client.httpx.AsyncClient",
+        return_value=mock_http_client
+    ):
         with patch("robot_client.MAX_RETRIES", 2):
             with patch("robot_client.RETRY_BACKOFF", 0.01):
-                with pytest.raises(RobotConnectionError, match="after 2 attempts"):
+                with pytest.raises(
+                    RobotConnectionError,
+                    match="after 2 attempts"
+                ):
                     await client.get_status()
 
 
@@ -157,7 +178,10 @@ async def test_get_map_success(client, mock_map_data):
     mock_http_client.__aenter__ = AsyncMock(return_value=mock_http_client)
     mock_http_client.__aexit__ = AsyncMock(return_value=False)
 
-    with patch("robot_client.httpx.AsyncClient", return_value=mock_http_client):
+    with patch(
+        "robot_client.httpx.AsyncClient",
+        return_value=mock_http_client
+    ):
         result = await client.get_map()
 
     assert result["grid_size"] == 21
@@ -179,7 +203,10 @@ async def test_get_sensors_success(client, mock_sensor_data):
     mock_http_client.__aenter__ = AsyncMock(return_value=mock_http_client)
     mock_http_client.__aexit__ = AsyncMock(return_value=False)
 
-    with patch("robot_client.httpx.AsyncClient", return_value=mock_http_client):
+    with patch(
+        "robot_client.httpx.AsyncClient",
+        return_value=mock_http_client
+    ):
         result = await client.get_sensors()
 
     assert result["temperature"] == 22.5

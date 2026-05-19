@@ -83,10 +83,25 @@ jobs:
           curl -sf http://localhost:8080/health \
           || (docker compose logs backend && exit 1)
 
-      - name: Smoke test — status endpoint
+      - name: Smoke test — register and login
         run: |
-          curl -sf http://localhost:8080/api/status \
+          # Register a test user
+          curl -sf -X POST http://localhost:8080/api/auth/register \
+            -H "Content-Type: application/json" \
+            -d '{"username":"ci_test","password":"testpass123","role":"commander"}' \
           || (docker compose logs backend && exit 1)
+
+          # Login and extract token
+          TOKEN=$(curl -sf -X POST http://localhost:8080/api/auth/login \
+            -d "username=ci_test&password=testpass123" \
+            | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
+
+          # Test authenticated endpoint
+          curl -sf http://localhost:8080/api/status \
+            -H "Authorization: Bearer $TOKEN" \
+          || (docker compose logs backend && exit 1)
+
+          echo "All smoke tests passed"
 
       - name: Print service status
         if: always()

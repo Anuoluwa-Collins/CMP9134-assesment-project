@@ -3,18 +3,22 @@ Ground Control Station — FastAPI application entry point.
 =========================================================
 
 Provides REST API endpoints and a WebSocket telemetry feed for the
-Robot Management System dashboard. Proxies requests to the Virtual
-Robot API via the RobotClient.
+Robot Management System dashboard.  Integrates JWT authentication,
+Role-Based Access Control (RBAC), and persistent mission logging.
 """
 
 import asyncio
+import json
 import logging
 import os
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
 
+from auth import router as auth_router, require_viewer, require_commander
+from database import init_db, get_db, MissionLog, CommandType, User
 from legacy_stats import router as legacy_stats_router
 from robot_client import robot, RobotConnectionError
 
@@ -33,11 +37,43 @@ class MoveRequest(BaseModel):
     y: int = Field(..., ge=0, le=20, description="Target Y coordinate (0-20)")
 
 
+# ── Audit-log helper ──────────────────────────────────────────────────────
+
+def _log_command(
+    db: Session,
+    command_type: CommandType,
+    user: User | None = None,
+    payload: dict | None = None,
+    robot_status: str = "unknown",
+    response: dict | None = None,
+) -> MissionLog:
+    """Persist a command to the mission audit log.
+
+    Every command sent to the robot is recorded with the acting user,
+    timestamp (auto-set by the model), request payload, and response.
+    This satisfies the safety-auditing requirement in the brief.
+    """
+    entry = MissionLog(
+        user_id=user.id if user else None,
+        command_type=command_type,
+        payload=json.dumps(payload or {}),
+        robot_status=robot_status,
+        response=json.dumps(response or {}),
+    )
+    db.add(entry)
+    db.commit()
+    db.refresh(entry)
+    return entry
+
+
 # ── Application factory ──────────────────────────────────────────────────
 app = FastAPI(
     title="Ground Control Station",
-    description="CMP9134 — Robot Management System",
-    version="0.2.0",
+    description=(
+        "CMP9134 — Robot Management System"
+        " with Authentication and Audit Logging"
+    ),
+    version="1.0.0",
 )
 
 app.add_middleware(
@@ -48,8 +84,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Attach legacy stats router (for refactoring exercise)
+# Register sub-routers
+app.include_router(auth_router)
 app.include_router(legacy_stats_router)
+
+
+# ── Startup event — create DB tables ─────────────────────────────────────
+@app.on_event("startup")
+def on_startup():
+    """Initialise the database tables on application boot."""
+    init_db()
+    logger.info("Database tables created / verified")
 
 
 # ── Health check ──────────────────────────────────────────────────────────
@@ -58,83 +103,144 @@ def health():
     return {"status": "ok"}
 
 
-# ── Robot status ──────────────────────────────────────────────────────────
+# ── Robot status (VIEWER or COMMANDER) ────────────────────────────────────
 @app.get("/api/status")
-async def get_status():
+async def get_status(
+    current_user: User = Depends(require_viewer),
+    db: Session = Depends(get_db),
+):
     """Return the current robot status (position, battery level, state).
 
-    Proxies the request to the Virtual Robot API via RobotClient.
-    Includes retry logic for handling chaos monkey 503 errors.
+    Requires authentication (any role).
+    Logs the status request to the mission audit trail.
     """
     try:
-        return await robot.get_status()
+        result = await robot.get_status()
+        _log_command(db, CommandType.STATUS, current_user, response=result,
+                     robot_status=result.get("status", "unknown"))
+        return result
     except RobotConnectionError as exc:
         logger.warning("Could not reach robot API: %s", exc)
+        _log_command(db, CommandType.STATUS, current_user,
+                     response={"error": str(exc)}, robot_status="unreachable")
         return {"error": str(exc)}
 
 
-# ── Move robot ────────────────────────────────────────────────────────────
+# ── Move robot (COMMANDER only) ──────────────────────────────────────────
 @app.post("/api/move")
-async def move_robot(request: MoveRequest):
+async def move_robot(
+    request: MoveRequest,
+    current_user: User = Depends(require_commander),
+    db: Session = Depends(get_db),
+):
     """Send the robot to position (x, y) on the 21x21 grid.
 
-    The request body must contain x and y integers between 0 and 20.
-    FastAPI automatically validates these constraints via the Pydantic model.
-    Returns the robot API response or an error message if unreachable.
+    Requires COMMANDER role — viewers receive 403 Forbidden.
+    The command and response are logged for safety auditing.
     """
+    payload = {"x": request.x, "y": request.y}
     try:
         result = await robot.move(request.x, request.y)
-        logger.info("Move command sent: (%d, %d)", request.x, request.y)
+        logger.info("Move command sent by %s: (%d, %d)",
+                    current_user.username, request.x, request.y)
+        _log_command(
+            db, CommandType.MOVE, current_user,
+            payload=payload, response=result,
+            robot_status=result.get("status", "unknown"))
         return result
     except RobotConnectionError as exc:
         logger.warning("Move command failed: %s", exc)
+        _log_command(db, CommandType.MOVE, current_user, payload=payload,
+                     response={"error": str(exc)}, robot_status="unreachable")
         return {"error": str(exc)}
 
 
-# ── Reset robot ───────────────────────────────────────────────────────────
+# ── Reset robot (COMMANDER only) ─────────────────────────────────────────
 @app.post("/api/reset")
-async def reset_robot():
+async def reset_robot(
+    current_user: User = Depends(require_commander),
+    db: Session = Depends(get_db),
+):
     """Reset the robot simulation to its initial state.
 
-    Clears the robot's position, battery, and sensor state back to defaults.
+    Requires COMMANDER role. Logged for auditing.
     """
     try:
         result = await robot.reset()
-        logger.info("Robot reset successfully")
+        logger.info("Robot reset by %s", current_user.username)
+        _log_command(db, CommandType.RESET, current_user, response=result)
         return result
     except RobotConnectionError as exc:
         logger.warning("Reset command failed: %s", exc)
+        _log_command(db, CommandType.RESET, current_user,
+                     response={"error": str(exc)}, robot_status="unreachable")
         return {"error": str(exc)}
 
 
-# ── Map data ──────────────────────────────────────────────────────────────
+# ── Map data (any authenticated user) ────────────────────────────────────
 @app.get("/api/map")
-async def get_map():
-    """Fetch the current 21x21 map grid with obstacles and robot position.
-
-    Returns the full map state from the robot simulator, including
-    obstacle locations and the robot's current cell.
-    """
+async def get_map(
+    current_user: User = Depends(require_viewer),
+    db: Session = Depends(get_db),
+):
+    """Fetch the current 21x21 map grid with obstacles and robot position."""
     try:
-        return await robot.get_map()
+        result = await robot.get_map()
+        _log_command(db, CommandType.MAP, current_user,
+                     response={"grid": "ok"})
+        return result
     except RobotConnectionError as exc:
         logger.warning("Map request failed: %s", exc)
         return {"error": str(exc)}
 
 
-# ── Sensor data ───────────────────────────────────────────────────────────
+# ── Sensor data (any authenticated user) ─────────────────────────────────
 @app.get("/api/sensors")
-async def get_sensors():
-    """Fetch current sensor readings from the robot.
-
-    Returns proximity, temperature, and other sensor data.
-    Note: readings may include simulated noise from the robot simulator.
-    """
+async def get_sensors(
+    current_user: User = Depends(require_viewer),
+    db: Session = Depends(get_db),
+):
+    """Fetch current sensor readings from the robot."""
     try:
-        return await robot.get_sensors()
+        result = await robot.get_sensors()
+        _log_command(db, CommandType.SENSOR, current_user,
+                     response={"sensors": "ok"})
+        return result
     except RobotConnectionError as exc:
         logger.warning("Sensor request failed: %s", exc)
         return {"error": str(exc)}
+
+
+# ── Mission audit log endpoint ───────────────────────────────────────────
+@app.get("/api/logs")
+def get_logs(
+    limit: int = Query(50, ge=1, le=500, description="Number of log entries"),
+    current_user: User = Depends(require_viewer),
+    db: Session = Depends(get_db),
+):
+    """Retrieve the most recent mission audit log entries.
+
+    Returns a list of logged commands with timestamps, users, and outcomes.
+    Newest entries first.
+    """
+    logs = (
+        db.query(MissionLog)
+        .order_by(MissionLog.timestamp.desc())
+        .limit(limit)
+        .all()
+    )
+    return [
+        {
+            "id": log.id,
+            "timestamp": log.timestamp.isoformat(),
+            "user": log.user.username if log.user else "system",
+            "command_type": log.command_type.value,
+            "payload": log.payload,
+            "robot_status": log.robot_status,
+            "response": log.response,
+        }
+        for log in logs
+    ]
 
 
 # ── WebSocket telemetry feed ──────────────────────────────────────────────
@@ -143,7 +249,7 @@ async def ws_telemetry(websocket: WebSocket):
     """Stream live robot telemetry data to connected browser clients.
 
     WebSockets maintain a persistent two-way connection, ideal for
-    low-latency telemetry feeds. The server pushes status updates
+    low-latency telemetry feeds.  The server pushes status updates
     every 500ms without the client needing to poll.
 
     If the robot API is unreachable, an error payload is sent instead
@@ -158,7 +264,6 @@ async def ws_telemetry(websocket: WebSocket):
                 data = await robot.get_status()
                 await websocket.send_json(data)
             except RobotConnectionError as exc:
-                # Send error payload instead of disconnecting
                 await websocket.send_json({
                     "error": str(exc),
                     "status": "disconnected",

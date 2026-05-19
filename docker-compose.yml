@@ -55,16 +55,24 @@ services:
       retries: 5
       start_period: 15s
 
-  # ── PostgreSQL database (example — uncomment and configure to use) ───
+  # ── PostgreSQL database ──────────────────────────────────────────────────
   #
-  # If your project needs a relational database, uncomment this block.
-  # postgres:16-alpine is a small, production-quality PostgreSQL image.
-  # You would also uncomment the "volumes" section at the bottom so the
-  # database data persists between container restarts.
-  # database:
-  #   image: postgres:16-alpine
-  #   restart: unless-stopped
-  # ...
+  # Stores user accounts and the mission audit log required by the brief.
+  database:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: gcs
+      POSTGRES_PASSWORD: gcs_secret
+      POSTGRES_DB: gcs_db
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gcs -d gcs_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   # ── FastAPI backend ───────────────────────────────────────────────────
   #
@@ -96,17 +104,15 @@ services:
       # Inside Docker's network, services reach each other by service name.
       # So "http://robot-api:5000" resolves to the robot-api container.
       ROBOT_API_URL: "http://robot-api:5000"
+      DATABASE_URL:  "postgresql://gcs:gcs_secret@database:5432/gcs_db"
+      JWT_SECRET_KEY: "${JWT_SECRET_KEY:-change-me-in-production-use-a-real-secret}"
       LOG_LEVEL:     "${LOG_LEVEL:-info}"
 
-    # "depends_on" controls start *order*. Without it, Compose may start
-    # backend before robot-api is ready, causing connection errors.
-    #
-    # "condition: service_started" — wait until robot-api container is
-    # running (not necessarily healthy). Use "service_healthy" when the
-    # dependency has a healthcheck and you need it fully ready.
     depends_on:
       robot-api:
         condition: service_started
+      database:
+        condition: service_healthy
 
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://localhost:8000/health"]
@@ -145,10 +151,7 @@ services:
       backend:
         condition: service_healthy
 
-# ── Named volumes (optional) ──────────────────────────────────────────
-# Named volumes persist data OUTSIDE the container's filesystem, so
-# database data survives container restarts and re-creates.
-# Uncomment when you enable the database service above.
-# volumes:
-#   db_data:          # uncomment when database service is enabled
-#     name: gcs_db_data
+# ── Named volumes ──────────────────────────────────────────────────────
+volumes:
+  db_data:
+    name: gcs_db_data
