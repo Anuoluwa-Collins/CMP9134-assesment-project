@@ -1,85 +1,83 @@
-# Ground Control Station — CMP9134 Starter Scaffold
+# Ground Control Station — CMP9134 Software Engineering
 
-This repository provides a **starter scaffold** for the CMP9134 assessment.
-It gives you a working Docker Compose stack and a VS Code Dev Container so you
-can focus on implementing the required functionality rather than configuring
-infrastructure.
+A web-based Robot Management System that connects to a Virtual Robot simulation,
+providing real-time telemetry, navigation control, and mission auditing through
+a secure, role-based dashboard.
 
-> **This is not a solution.** The backend contains only stub code. You must
-> implement authentication, robot control endpoints, mission logging, and the
-> frontend dashboard yourself.
+## Features
 
-## What is provided
-
-| Component | What you get |
-|-----------|-------------|
-| Virtual Robot API | Pre-built simulator image — do not modify |
-| FastAPI backend | Minimal scaffold with a `/health` endpoint and a basic `RobotClient` |
-| Nginx frontend | Static file server with `/api/` proxy pre-configured |
-| Docker Compose | Full stack orchestration (robot + backend + frontend) |
-| Dev Container | VS Code environment with the stack running automatically |
+- **Real-time Dashboard**: 21×21 grid map with live robot position, battery monitoring, and sensor readings
+- **WebSocket Telemetry**: Sub-second live updates with automatic reconnection and exponential backoff
+- **JWT Authentication**: Secure registration and login with bcrypt password hashing
+- **Role-Based Access Control (RBAC)**: Viewer (read-only telemetry) and Commander (full robot control) roles
+- **Mission Audit Trail**: Every command logged to PostgreSQL with timestamp, user, payload, and robot response
+- **Resilient Communication**: Automatic retry with exponential backoff for robot API 503 outages
+- **Containerised Deployment**: Full Docker Compose stack with health checks and startup ordering
+- **CI/CD Pipeline**: GitHub Actions for testing, linting, Docker builds, and integration smoke tests
 
 ## Quick Start
 
 ```bash
-# 1. Fork / clone this repository
+# Clone the repository
+git clone https://github.com/YOUR-USERNAME/YOUR-REPO.git
+cd YOUR-REPO
 
-# 2. Start the full stack
+# Start all services (robot API, backend, database, frontend)
 docker compose up --build
 
-# 3. Open the dashboard (currently a placeholder)
+# Open the dashboard
 open http://localhost:8080
 ```
 
-Default port: **8080**. Change via `GCS_PORT` in `.env`.
+Register an account, then login. Commanders can move the robot; Viewers can only observe.
 
 ## Architecture
 
 ```
-Browser → Nginx (frontend) → FastAPI (backend) → Robot API
+Browser → Nginx (frontend + reverse proxy) → FastAPI (backend) → Robot API
+                                                  ↓
+                                             PostgreSQL (audit log + users)
 ```
-
-The database service is **not active** by default. A commented-out PostgreSQL
-example is included in `docker-compose.yml` — uncomment and adapt it if your
-implementation requires persistent storage.
-
-## Development (recommended)
-
-Open the repository in VS Code with the **Dev Containers** extension, then
-choose **"Reopen in Container"**. This starts the robot API and backend
-automatically with hot-reload enabled.
-
-```bash
-# Run the backend with hot reload (inside devcontainer)
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
-```
-
-The interactive API docs are available at http://localhost:8000/docs while
-the backend is running.
-
-## What you need to implement
-
-Suggested areas (see the assessment brief for full requirements):
-
-- **Authentication** — e.g. JWT tokens, user registration/login
-- **Robot control endpoints** — move, reset, status, sensor data
-- **Mission logging** — record commands and outcomes (consider a database)
-- **WebSocket telemetry** — proxy the robot's real-time stream to the browser
-- **Frontend dashboard** — maps, controls, status display
 
 ## Project Structure
 
 ```
+├── .github/workflows/ci.yml   # CI/CD pipeline (test, lint, build, integration)
 ├── backend/
-│   ├── Dockerfile          # Multi-stage: base / development / production
-│   ├── main.py             # FastAPI stub — add your routes here
-│   ├── robot_client.py     # Basic robot HTTP client — extend as needed
-│   └── requirements.txt    # fastapi, uvicorn, httpx — add your dependencies
+│   ├── Dockerfile              # Multi-stage: base / development / production
+│   ├── main.py                 # FastAPI routes with RBAC and audit logging
+│   ├── auth.py                 # JWT authentication and role-based guards
+│   ├── database.py             # SQLAlchemy models (User, MissionLog)
+│   ├── robot_client.py         # Async HTTP client with retry logic
+│   ├── legacy_stats.py         # Mission statistics module
+│   └── tests/                  # pytest unit and integration tests
 ├── frontend/
-│   ├── Dockerfile          # nginx serving static files
-│   ├── nginx.conf          # Proxies /api/ and /ws/ to the backend
-│   └── public/             # HTML/JS placeholder — replace with your dashboard
-├── .devcontainer/          # VS Code Dev Container configuration
-├── docker-compose.yml      # Stack orchestration (database section commented out)
-└── docs/report.md          # Assessment report template
+│   ├── Dockerfile              # Nginx serving static files
+│   ├── nginx.conf              # Reverse proxy for /api/ and /ws/
+│   └── public/index.html       # Dashboard with auth, RBAC UI, audit log
+├── documentation/
+│   ├── ARCHITECTURE.md         # System architecture and design patterns
+│   └── doc.md                  # License audit and component interfaces
+└── docker-compose.yml          # Full stack orchestration
+```
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Frontend | Vanilla JS, HTML5, CSS3 |
+| Web Server | Nginx 1.27-alpine |
+| Backend | Python 3.12, FastAPI, httpx |
+| Auth | python-jose (JWT), passlib (bcrypt) |
+| Database | PostgreSQL 16, SQLAlchemy |
+| Containerisation | Docker, Docker Compose |
+| CI/CD | GitHub Actions |
+| Testing | pytest, pytest-asyncio, pytest-cov |
+
+## Running Tests
+
+```bash
+cd backend
+pip install -r requirements.txt
+pytest -v --tb=short --cov=. --cov-report=term-missing
 ```
